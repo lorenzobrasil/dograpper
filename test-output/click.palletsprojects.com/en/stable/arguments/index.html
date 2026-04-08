@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arguments &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Basic Commands, Groups, Context" href="../commands-and-groups/index.html" />
+    <link rel="prev" title="Options Shortcut Decorators" href="../option-decorators/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/arguments/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../commands-and-groups/index.html" title="Basic Commands, Groups, Context"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../option-decorators/index.html" title="Options Shortcut Decorators"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Arguments</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="arguments">
+<span id="id1"></span><h1>Arguments<a class="headerlink" href="index.html#arguments" title="Link to this heading">¶</a></h1>
+<p>Arguments are:</p>
+<ul class="simple">
+<li><p>Are positional in nature.</p></li>
+<li><p>Similar to a limited version of <a class="reference internal" href="../options/index.html#options"><span class="std std-ref">options</span></a> that can take an arbitrary number of inputs</p></li>
+<li><p><a class="reference internal" href="../documentation/index.html#documenting-arguments"><span class="std std-ref">Documented manually</span></a>.</p></li>
+</ul>
+<p>Useful and often used kwargs are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">default</span></code>: Passes a default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nargs</span></code>: Sets the number of arguments. Set to -1 to take an arbitrary number.</p></li>
+</ul>
+<section id="basic-arguments">
+<h2>Basic Arguments<a class="headerlink" href="index.html#basic-arguments" title="Link to this heading">¶</a></h2>
+<p>A minimal <a class="reference internal" href="../api/index.html#click.Argument" title="click.Argument"><code class="xref py py-class docutils literal notranslate"><span class="pre">click.Argument</span></code></a> solely takes one string argument: the name of the argument. This will assume the argument is required, has no default, and is of the type <code class="docutils literal notranslate"><span class="pre">str</span></code>.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print FILENAME.&quot;&quot;&quot;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>touch<span class="w"> </span>foo.txt
+<span class="go">foo.txt</span>
+</pre></div>
+</div>
+<p>An argument may be assigned a <a class="reference internal" href="../parameter-types/index.html#parameter-types"><span class="std std-ref">parameter type</span></a>. If no type is provided, the type of the default value is used. If no default value is provided, the type is assumed to be <a class="reference internal" href="../api/index.html#click.STRING" title="click.STRING"><code class="xref py py-data docutils literal notranslate"><span class="pre">STRING</span></code></a>.</p>
+<div class="admonition-note-on-required-arguments admonition">
+<p class="admonition-title">Note on Required Arguments</p>
+<p>It is possible to make an argument required by setting <code class="docutils literal notranslate"><span class="pre">required=True</span></code>.  It is not recommended since we think command line tools should gracefully degrade into becoming no ops.  We think this because command line tools are often invoked with wildcard inputs and they should not error out if the wildcard is empty.</p>
+</div>
+</section>
+<section id="multiple-arguments">
+<h2>Multiple Arguments<a class="headerlink" href="index.html#multiple-arguments" title="Link to this heading">¶</a></h2>
+<p>To set the number of argument use the <code class="docutils literal notranslate"><span class="pre">nargs</span></code> kwarg. It can be set to any positive integer and -1. Setting it to -1, makes the number of arguments arbitrary (which is called variadic) and can only be used once. The arguments are then packed as a tuple and passed to the function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;dsts&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="n">src</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dsts</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Move file SRC to DST.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">destination</span> <span class="ow">in</span> <span class="n">dsts</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Copy </span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2"> to folder </span><span class="si">{</span><span class="n">destination</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>copy<span class="w"> </span>foo.txt<span class="w"> </span>usr/david/foo.txt<span class="w"> </span>usr/mitsuko/foo.txt
+<span class="go">Copy foo.txt to folder usr/david/foo.txt</span>
+<span class="go">Copy foo.txt to folder usr/mitsuko/foo.txt</span>
+</pre></div>
+</div>
+<div class="admonition-note-on-handling-files admonition">
+<p class="admonition-title">Note on Handling Files</p>
+<p>This is not how you should handle files and files paths. This merely used as a simple example. See <a class="reference internal" href="../handling-files/index.html#handling-files"><span class="std std-ref">Handling Files</span></a> to learn more about how to handle files in parameters.</p>
+</div>
+</section>
+<section id="argument-escape-sequences">
+<h2>Argument Escape Sequences<a class="headerlink" href="index.html#argument-escape-sequences" title="Link to this heading">¶</a></h2>
+<p>If you want to process arguments that look like options, like a file named <code class="docutils literal notranslate"><span class="pre">-foo.txt</span></code> or <code class="docutils literal notranslate"><span class="pre">--foo.txt</span></code> , you must pass the <code class="docutils literal notranslate"><span class="pre">--</span></code> separator first. After you pass the <code class="docutils literal notranslate"><span class="pre">--</span></code>, you may only pass arguments. This is a common feature for POSIX command line tools.</p>
+<p>Example usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;files&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">())</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print all FILES file names.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>touch<span class="w"> </span>--<span class="w"> </span>-foo.txt<span class="w"> </span>bar.txt
+<span class="go">-foo.txt</span>
+<span class="go">bar.txt</span>
+</pre></div>
+</div>
+<p>If you don’t like the <code class="docutils literal notranslate"><span class="pre">--</span></code> marker, you can set ignore_unknown_options to True to avoid checking unknown options:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="n">context_settings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ignore_unknown_options&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;files&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">())</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print all FILES file names.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>touch<span class="w"> </span>-foo.txt<span class="w"> </span>bar.txt
+<span class="go">-foo.txt</span>
+<span class="go">bar.txt</span>
+</pre></div>
+</div>
+</section>
+<section id="environment-variables">
+<span id="id2"></span><h2>Environment Variables<a class="headerlink" href="index.html#environment-variables" title="Link to this heading">¶</a></h2>
+<p>Arguments can use environment variables. To do so, pass the name(s) of the environment variable(s) via <code class="code docutils literal notranslate"><span class="pre">envvar</span></code> in <code class="docutils literal notranslate"><span class="pre">click.argument</span></code>.</p>
+<p>Checking one environment variable:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="s1">&#39;SRC&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;r&#39;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">echo</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print value of SRC environment variable.&quot;&quot;&quot;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">SRC</span><span class="o">=</span>hello.txt
+<span class="gp">$ </span><span class="nb">echo</span>
+<span class="go">Hello World!</span>
+</pre></div>
+</div>
+<p>Checking multiple environment variables:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;SRC&#39;</span><span class="p">,</span> <span class="s1">&#39;SRC_2&#39;</span><span class="p">],</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;r&#39;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">echo</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print value of SRC environment variable.&quot;&quot;&quot;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">SRC_2</span><span class="o">=</span>hello.txt
+<span class="gp">$ </span><span class="nb">echo</span>
+<span class="go">Hello World from second variable!</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Arguments</a><ul>
+<li><a class="reference internal" href="index.html#basic-arguments">Basic Arguments</a></li>
+<li><a class="reference internal" href="index.html#multiple-arguments">Multiple Arguments</a></li>
+<li><a class="reference internal" href="index.html#argument-escape-sequences">Argument Escape Sequences</a></li>
+<li><a class="reference internal" href="index.html#environment-variables">Environment Variables</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../option-decorators/index.html" title="previous chapter">Options Shortcut Decorators</a>
+          <li>Next: <a href="../commands-and-groups/index.html" title="next chapter">Basic Commands, Groups, Context</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

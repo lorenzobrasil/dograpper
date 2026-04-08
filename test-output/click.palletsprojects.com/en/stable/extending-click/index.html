@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Extending Click &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Testing Click Applications" href="../testing/index.html" />
+    <link rel="prev" title="Complex Applications" href="../complex/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/extending-click/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../testing/index.html" title="Testing Click Applications"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../complex/index.html" title="Complex Applications"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Extending Click</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="extending-click">
+<h1>Extending Click<a class="headerlink" href="index.html#extending-click" title="Link to this heading">¶</a></h1>
+<p>In addition to common functionality that is implemented in the library itself, there are countless patterns that can be
+implemented by extending Click. This page should give some insight into what can be accomplished.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#custom-groups" id="id2">Custom Groups</a></p></li>
+<li><p><a class="reference internal" href="index.html#command-aliases" id="id3">Command Aliases</a></p></li>
+</ul>
+</nav>
+<section id="custom-groups">
+<span id="id1"></span><h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">Custom Groups</a><a class="headerlink" href="index.html#custom-groups" title="Link to this heading">¶</a></h2>
+<p>You can customize the behavior of a group beyond the arguments it accepts by subclassing <a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">click.Group</span></code></a>.</p>
+<p>The most common methods to override are <a class="reference internal" href="../api/index.html#click.Group.get_command" title="click.Group.get_command"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_command()</span></code></a> and <a class="reference internal" href="../api/index.html#click.Group.list_commands" title="click.Group.list_commands"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list_commands()</span></code></a>.</p>
+<p>The following example implements a basic plugin system that loads commands from Python files in a folder. The command is
+lazily loaded to avoid slow startup.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">importlib.util</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PluginGroup</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plugin_folder</span><span class="o">=</span><span class="s2">&quot;commands&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plugin_folder</span> <span class="o">=</span> <span class="n">plugin_folder</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_commands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plugin_folder</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">):</span>
+                <span class="n">rv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">])</span>
+
+        <span class="n">rv</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">rv</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plugin_folder</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.py&quot;</span><span class="p">)</span>
+        <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+        <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">cli</span>
+
+<span class="n">cli</span> <span class="o">=</span> <span class="n">PluginGroup</span><span class="p">(</span>
+    <span class="n">plugin_folder</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;commands&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">cli</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Custom classes can also be used with decorators:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
+    <span class="bp">cls</span><span class="o">=</span><span class="n">PluginGroup</span><span class="p">,</span>
+    <span class="n">plugin_folder</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;commands&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="command-aliases">
+<span id="aliases"></span><h2><a class="toc-backref" href="index.html#id3" role="doc-backlink">Command Aliases</a><a class="headerlink" href="index.html#command-aliases" title="Link to this heading">¶</a></h2>
+<p>Many tools support aliases for commands. For example, you can configure <code class="docutils literal notranslate"><span class="pre">git</span></code> to accept <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">ci</span></code> as alias for
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span></code>. Other tools also support auto-discovery for aliases by automatically shortening them.</p>
+<p>It’s possible to customize <a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> to provide this functionality. As explained in <a class="reference internal" href="index.html#custom-groups"><span class="std std-ref">Custom Groups</span></a>, a group
+provides two methods: <a class="reference internal" href="../api/index.html#click.Group.list_commands" title="click.Group.list_commands"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list_commands()</span></code></a> and <a class="reference internal" href="../api/index.html#click.Group.get_command" title="click.Group.get_command"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_command()</span></code></a>. In this particular case, you only
+need to override the latter as you generally don’t want to enumerate the aliases on the help page in order to avoid
+confusion.</p>
+<p>The following example implements a subclass of <a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> that accepts a prefix for a command. If there was a
+command called <code class="docutils literal notranslate"><span class="pre">push</span></code>, it would accept <code class="docutils literal notranslate"><span class="pre">pus</span></code> as an alias (so long as it was unique):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">AliasedGroup</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">cmd_name</span><span class="p">):</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_command</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cmd_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rv</span>
+
+        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_commands</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">cmd_name</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">matches</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">click</span><span class="o">.</span><span class="n">Group</span><span class="o">.</span><span class="n">get_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">ctx</span><span class="o">.</span><span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Too many matches: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">matches</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="c1"># always return the full command name</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_command</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cmd</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">args</span>
+</pre></div>
+</div>
+<p>It can be used like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+    <span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="bp">cls</span><span class="o">=</span><span class="n">AliasedGroup</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@cli</span><span class="o">.</span><span class="n">command</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">push</span><span class="p">():</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@cli</span><span class="o">.</span><span class="n">command</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pop</span><span class="p">():</span>
+        <span class="k">pass</span>
+</pre></div>
+</div>
+<p>See the <a class="reference external" href="https://github.com/pallets/click/tree/main/examples/aliases">alias example</a> in Click’s repository for another example.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Extending Click</a><ul>
+<li><a class="reference internal" href="index.html#custom-groups">Custom Groups</a></li>
+<li><a class="reference internal" href="index.html#command-aliases">Command Aliases</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../complex/index.html" title="previous chapter">Complex Applications</a>
+          <li>Next: <a href="../testing/index.html" title="next chapter">Testing Click Applications</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

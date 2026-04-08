@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Parameter Types &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Options" href="../options/index.html" />
+    <link rel="prev" title="Parameters" href="../parameters/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/parameter-types/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../options/index.html" title="Options"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../parameters/index.html" title="Parameters"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Parameter Types</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="parameter-types">
+<span id="id1"></span><h1>Parameter Types<a class="headerlink" href="index.html#parameter-types" title="Link to this heading">¶</a></h1>
+<p>When the parameter type is set using <code class="docutils literal notranslate"><span class="pre">type</span></code>, Click will leverage the type to make your life easier, for example adding
+data to your help pages. Most examples are done with options, but types are available to options and arguments.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#built-in-types-examples" id="id2">Built-in Types Examples</a></p>
+<ul>
+<li><p><a class="reference internal" href="index.html#choice" id="id3">Choice</a></p></li>
+<li><p><a class="reference internal" href="index.html#int-and-float-ranges" id="id4">Int and Float Ranges</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="index.html#built-in-types-listing" id="id5">Built-in Types Listing</a></p></li>
+<li><p><a class="reference internal" href="index.html#how-to-implement-custom-types" id="id6">How to Implement Custom Types</a></p></li>
+</ul>
+</nav>
+<section id="built-in-types-examples">
+<h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">Built-in Types Examples</a><a class="headerlink" href="index.html#built-in-types-examples" title="Link to this heading">¶</a></h2>
+<section id="choice">
+<span id="choice-opts"></span><h3><a class="toc-backref" href="index.html#id3" role="doc-backlink">Choice</a><a class="headerlink" href="index.html#choice" title="Link to this heading">¶</a></h3>
+<p>Sometimes, you want to have a parameter be a choice of a list of values. In that case you can use <a class="reference internal" href="../api/index.html#click.Choice" title="click.Choice"><code class="xref py py-class docutils literal notranslate"><span class="pre">Choice</span></code></a> type.
+It can be instantiated with a list of valid values. The originally passed choice will be returned, not the str passed on
+the command line. Token normalization functions and <code class="docutils literal notranslate"><span class="pre">case_sensitive=False</span></code> can cause the two to be different but still
+match. <a class="reference internal" href="../api/index.html#click.Choice.normalize_choice" title="click.Choice.normalize_choice"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Choice.normalize_choice()</span></code></a> for more info.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">enum</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">HashType</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">MD5</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+    <span class="n">SHA1</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--hash-type&#39;</span><span class="p">,</span>
+              <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Choice</span><span class="p">(</span><span class="n">HashType</span><span class="p">,</span> <span class="n">case_sensitive</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">digest</span><span class="p">(</span><span class="n">hash_type</span><span class="p">:</span> <span class="n">HashType</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">hash_type</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>What it looks like:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>digest<span class="w"> </span>--hash-type<span class="o">=</span>MD5
+<span class="go">HashType.MD5</span>
+
+<span class="gp">$ </span>digest<span class="w"> </span>--hash-type<span class="o">=</span>md5
+<span class="go">HashType.MD5</span>
+
+<span class="gp">$ </span>digest<span class="w"> </span>--hash-type<span class="o">=</span>foo
+<span class="go">Usage: digest [OPTIONS]</span>
+<span class="go">Try &#39;digest --help&#39; for help.</span>
+
+<span class="go">Error: Invalid value for &#39;--hash-type&#39;: &#39;foo&#39; is not one of &#39;md5&#39;, &#39;sha1&#39;.</span>
+
+<span class="gp">$ </span>digest<span class="w"> </span>--help
+<span class="go">Usage: digest [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --hash-type [md5|sha1]</span>
+<span class="go">  --help                  Show this message and exit.</span>
+</pre></div>
+</div>
+<p>Any iterable may be passed to <a class="reference internal" href="../api/index.html#click.Choice" title="click.Choice"><code class="xref py py-class docutils literal notranslate"><span class="pre">Choice</span></code></a>. If an <code class="docutils literal notranslate"><span class="pre">Enum</span></code> is passed, the names of the enum members will be used as
+valid choices.</p>
+<p>Choices work with options that have <code class="docutils literal notranslate"><span class="pre">multiple=True</span></code>. If a <code class="docutils literal notranslate"><span class="pre">default</span></code> value is given with <code class="docutils literal notranslate"><span class="pre">multiple=True</span></code>, it should be a
+list or tuple of valid choices.</p>
+<p>Choices should be unique after normalization, see <a class="reference internal" href="../api/index.html#click.Choice.normalize_choice" title="click.Choice.normalize_choice"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Choice.normalize_choice()</span></code></a> for more info.</p>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 7.1: </span>The resulting value from an option will always be one of the originally passed choices
+regardless of <code class="docutils literal notranslate"><span class="pre">case_sensitive</span></code>.</p>
+</div>
+</details></section>
+<section id="int-and-float-ranges">
+<span id="ranges"></span><h3><a class="toc-backref" href="index.html#id4" role="doc-backlink">Int and Float Ranges</a><a class="headerlink" href="index.html#int-and-float-ranges" title="Link to this heading">¶</a></h3>
+<p>The <a class="reference internal" href="../api/index.html#click.IntRange" title="click.IntRange"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntRange</span></code></a> type extends the <a class="reference internal" href="../api/index.html#click.INT" title="click.INT"><code class="xref py py-data docutils literal notranslate"><span class="pre">INT</span></code></a> type to ensure the value is contained in the given range. The
+<a class="reference internal" href="../api/index.html#click.FloatRange" title="click.FloatRange"><code class="xref py py-class docutils literal notranslate"><span class="pre">FloatRange</span></code></a> type does the same for <a class="reference internal" href="../api/index.html#click.FLOAT" title="click.FLOAT"><code class="xref py py-data docutils literal notranslate"><span class="pre">FLOAT</span></code></a>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">min</span></code> or <code class="docutils literal notranslate"><span class="pre">max</span></code> is omitted, that side is <em>unbounded</em>. Any value in that direction is accepted. By default, both bounds
+are <em>closed</em>, which means the boundary value is included in the accepted range. <code class="docutils literal notranslate"><span class="pre">min_open</span></code> and <code class="docutils literal notranslate"><span class="pre">max_open</span></code> can be used to
+exclude that boundary from the range.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">clamp</span></code> mode is enabled, a value that is outside the range is set to the boundary instead of failing. For example,
+the range <code class="docutils literal notranslate"><span class="pre">0,</span> <span class="pre">5</span></code> would return <code class="docutils literal notranslate"><span class="pre">5</span></code> for the value <code class="docutils literal notranslate"><span class="pre">10</span></code>, or <code class="docutils literal notranslate"><span class="pre">0</span></code> for the value <code class="docutils literal notranslate"><span class="pre">-1</span></code>. When using <a class="reference internal" href="../api/index.html#click.FloatRange" title="click.FloatRange"><code class="xref py py-class docutils literal notranslate"><span class="pre">FloatRange</span></code></a>, <code class="docutils literal notranslate"><span class="pre">clamp</span></code>
+can only be enabled if both bounds are <em>closed</em> (the default).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--count&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">IntRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--digit&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">IntRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">repeat</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="n">digit</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">digit</span><span class="p">)</span> <span class="o">*</span> <span class="n">count</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>repeat<span class="w"> </span>--count<span class="o">=</span><span class="m">100</span><span class="w"> </span>--digit<span class="o">=</span><span class="m">5</span>
+<span class="go">55555555555555555555</span>
+<span class="gp">$ </span>repeat<span class="w"> </span>--count<span class="o">=</span><span class="m">6</span><span class="w"> </span>--digit<span class="o">=</span><span class="m">12</span>
+<span class="go">Usage: repeat [OPTIONS]</span>
+<span class="go">Try &#39;repeat --help&#39; for help.</span>
+
+<span class="go">Error: Invalid value for &#39;--digit&#39;: 12 is not in the range 0&lt;=x&lt;=9.</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="built-in-types-listing">
+<h2><a class="toc-backref" href="index.html#id5" role="doc-backlink">Built-in Types Listing</a><a class="headerlink" href="index.html#built-in-types-listing" title="Link to this heading">¶</a></h2>
+<p>The supported parameter <a class="reference internal" href="../api/index.html#click-api-types"><span class="std std-ref">Types</span></a> are</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">str</span></code> / <a class="reference internal" href="../api/index.html#click.STRING" title="click.STRING"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.STRING</span></code></a>: The default parameter type which indicates unicode strings.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">int</span></code> / <a class="reference internal" href="../api/index.html#click.INT" title="click.INT"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.INT</span></code></a>: A parameter that only accepts integers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float</span></code> / <a class="reference internal" href="../api/index.html#click.FLOAT" title="click.FLOAT"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.FLOAT</span></code></a>: A parameter that only accepts floating point values.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bool</span></code> / <a class="reference internal" href="../api/index.html#click.BOOL" title="click.BOOL"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.BOOL</span></code></a>: A parameter that accepts boolean values. This is automatically used for boolean flags.
+The string values “1”, “true”, “t”, “yes”, “y”, and “on” convert to <code class="docutils literal notranslate"><span class="pre">True</span></code>. “0”, “false”, “f”, “no”, “n”, and “off”
+convert to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><a class="reference internal" href="../api/index.html#click.UUID" title="click.UUID"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.UUID</span></code></a>: A parameter that accepts UUID values. This is not automatically guessed but represented as
+<a class="reference external" href="https://docs.python.org/3/library/uuid.html#uuid.UUID" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">uuid.UUID</span></code></a>.</p></li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">Choice</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">choices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case_sensitive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>The choice type allows a value to be checked against a fixed set
+of supported values.</p>
+<p>You may pass any iterable value which will be converted to a tuple
+and thus will only be iterated once.</p>
+<p>The resulting value will always be one of the originally passed choices.
+See <a class="reference internal" href="../api/index.html#click.Choice.normalize_choice" title="click.Choice.normalize_choice"><code class="xref py py-meth docutils literal notranslate"><span class="pre">normalize_choice()</span></code></a> for more info on the mapping of strings
+to choices. See <a class="reference internal" href="index.html#choice-opts"><span class="std std-ref">Choice</span></a> for an example.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>case_sensitive</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Set to false to make choices case
+insensitive. Defaults to true.</p></li>
+<li><p><strong>choices</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><em>Sequence</em></a><em>[</em><em>ParamTypeValue</em><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 8.2.0: </span>Non-<code class="docutils literal notranslate"><span class="pre">str</span></code> <code class="docutils literal notranslate"><span class="pre">choices</span></code> are now supported. It can additionally be any
+iterable. Before you were not recommended to pass anything but a list or
+tuple.</p>
+</div>
+<div class="versionadded">
+<p><span class="versionmodified added">Added in version 8.2.0: </span>Choice normalization can be overridden via <a class="reference internal" href="../api/index.html#click.Choice.normalize_choice" title="click.Choice.normalize_choice"><code class="xref py py-meth docutils literal notranslate"><span class="pre">normalize_choice()</span></code></a>.</p>
+</div>
+</details></dd></dl>
+
+</li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">DateTime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">formats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>The DateTime type converts date strings into <code class="code docutils literal notranslate"><span class="pre">datetime</span></code> objects.</p>
+<p>The format strings which are checked are configurable, but default to some
+common (non-timezone aware) ISO 8601 formats.</p>
+<p>When specifying <em>DateTime</em> formats, you should only pass a list or a tuple.
+Other iterables, like generators, may lead to surprising results.</p>
+<p>The format strings are processed using <code class="docutils literal notranslate"><span class="pre">datetime.strptime</span></code>, and this
+consequently defines the format strings which are allowed.</p>
+<p>Parsing is tried using each format, in order, and the first format which
+parses successfully is used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>formats</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.14)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>]</em>) – A list or tuple of date format strings, in the order in
+which they should be tried. Defaults to
+<code class="docutils literal notranslate"><span class="pre">'%Y-%m-%d'</span></code>, <code class="docutils literal notranslate"><span class="pre">'%Y-%m-%dT%H:%M:%S'</span></code>,
+<code class="docutils literal notranslate"><span class="pre">'%Y-%m-%d</span> <span class="pre">%H:%M:%S'</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">File</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'r'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'strict'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lazy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atomic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>Declares a parameter to be a file for reading or writing.  The file
+is automatically closed once the context tears down (after the command
+finished working).</p>
+<p>Files can be opened for reading or writing.  The special value <code class="docutils literal notranslate"><span class="pre">-</span></code>
+indicates stdin or stdout depending on the mode.</p>
+<p>By default, the file is opened for reading text data, but it can also be
+opened in binary mode or for writing.  The encoding parameter can be used
+to force a specific encoding.</p>
+<p>The <code class="code docutils literal notranslate"><span class="pre">lazy</span></code> flag controls if the file should be opened immediately or upon
+first IO. The default is to be non-lazy for standard input and output
+streams as well as files opened for reading, <code class="code docutils literal notranslate"><span class="pre">lazy</span></code> otherwise. When opening a
+file lazily for reading, it is still opened temporarily for validation, but
+will not be held open until first IO. lazy is mainly useful when opening
+for writing to avoid creating the file until it is needed.</p>
+<p>Files can also be opened atomically in which case all writes go into a
+separate file in the same folder and upon completion the file will
+be moved over to the original location.  This is useful if a file
+regularly read by other users is modified.</p>
+<p>See <a class="reference internal" href="../handling-files/index.html#file-args"><span class="std std-ref">File Arguments</span></a> for more information.</p>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 2.0: </span>Added the <code class="docutils literal notranslate"><span class="pre">atomic</span></code> parameter.</p>
+</div>
+</details><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+<li><p><strong>encoding</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>lazy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>atomic</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">FloatRange</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_open</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_open</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>Restrict a <a class="reference internal" href="../api/index.html#click.FLOAT" title="click.FLOAT"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.FLOAT</span></code></a> value to a range of accepted
+values. See <a class="reference internal" href="index.html#ranges"><span class="std std-ref">Int and Float Ranges</span></a>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">min</span></code> or <code class="docutils literal notranslate"><span class="pre">max</span></code> are not passed, any value is accepted in that
+direction. If <code class="docutils literal notranslate"><span class="pre">min_open</span></code> or <code class="docutils literal notranslate"><span class="pre">max_open</span></code> are enabled, the
+corresponding boundary is not included in the range.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">clamp</span></code> is enabled, a value outside the range is clamped to the
+boundary instead of failing. This is not supported if either
+boundary is marked <code class="docutils literal notranslate"><span class="pre">open</span></code>.</p>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 8.0: </span>Added the <code class="docutils literal notranslate"><span class="pre">min_open</span></code> and <code class="docutils literal notranslate"><span class="pre">max_open</span></code> parameters.</p>
+</div>
+</details><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>min_open</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>max_open</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>clamp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">IntRange</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_open</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_open</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>Restrict an <a class="reference internal" href="../api/index.html#click.INT" title="click.INT"><code class="xref py py-data docutils literal notranslate"><span class="pre">click.INT</span></code></a> value to a range of accepted
+values. See <a class="reference internal" href="index.html#ranges"><span class="std std-ref">Int and Float Ranges</span></a>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">min</span></code> or <code class="docutils literal notranslate"><span class="pre">max</span></code> are not passed, any value is accepted in that
+direction. If <code class="docutils literal notranslate"><span class="pre">min_open</span></code> or <code class="docutils literal notranslate"><span class="pre">max_open</span></code> are enabled, the
+corresponding boundary is not included in the range.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">clamp</span></code> is enabled, a value outside the range is clamped to the
+boundary instead of failing.</p>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 8.0: </span>Added the <code class="docutils literal notranslate"><span class="pre">min_open</span></code> and <code class="docutils literal notranslate"><span class="pre">max_open</span></code> parameters.</p>
+</div>
+</details><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>min_open</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>max_open</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+<li><p><strong>clamp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</li>
+</ul>
+<ul>
+<li><dl class="py class">
+<dt class="sig sig-object py">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">click.</span></span><span class="sig-name descname"><span class="pre">Path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exists</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_okay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dir_okay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">writable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">readable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolve_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_dash</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">executable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span></dt>
+<dd><p>The <code class="docutils literal notranslate"><span class="pre">Path</span></code> type is similar to the <a class="reference internal" href="../api/index.html#click.File" title="click.File"><code class="xref py py-class docutils literal notranslate"><span class="pre">File</span></code></a> type, but
+returns the filename instead of an open file. Various checks can be
+enabled to validate the type of file and permissions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exists</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – The file or directory needs to exist for the value to
+be valid. If this is not set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, and the file does not
+exist, then all further checks are silently skipped.</p></li>
+<li><p><strong>file_okay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Allow a file as a value.</p></li>
+<li><p><strong>dir_okay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Allow a directory as a value.</p></li>
+<li><p><strong>readable</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – if true, a readable check is performed.</p></li>
+<li><p><strong>writable</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – if true, a writable check is performed.</p></li>
+<li><p><strong>executable</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – if true, an executable check is performed.</p></li>
+<li><p><strong>resolve_path</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Make the value absolute and resolve any
+symlinks. A <code class="docutils literal notranslate"><span class="pre">~</span></code> is not expanded, as this is supposed to be
+done by the shell only.</p></li>
+<li><p><strong>allow_dash</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Allow a single dash as a value, which indicates
+a standard stream (but does not open it). Use
+<a class="reference internal" href="../api/index.html#click.open_file" title="click.open_file"><code class="xref py py-func docutils literal notranslate"><span class="pre">open_file()</span></code></a> to handle opening this value.</p></li>
+<li><p><strong>path_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><em>type</em></a><em>[</em><em>t.Any</em><em>] </em><em>| </em><em>None</em>) – Convert the incoming path value to this type. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, keep Python’s default, which is <code class="docutils literal notranslate"><span class="pre">str</span></code>. Useful to
+convert to <a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">pathlib.Path</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 8.1: </span>Added the <code class="docutils literal notranslate"><span class="pre">executable</span></code> parameter.</p>
+</div>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 8.0: </span>Allow passing <code class="docutils literal notranslate"><span class="pre">path_type=pathlib.Path</span></code>.</p>
+</div>
+<div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 6.0: </span>Added the <code class="docutils literal notranslate"><span class="pre">allow_dash</span></code> parameter.</p>
+</div>
+</details></dd></dl>
+
+</li>
+</ul>
+</section>
+<section id="how-to-implement-custom-types">
+<h2><a class="toc-backref" href="index.html#id6" role="doc-backlink">How to Implement Custom Types</a><a class="headerlink" href="index.html#how-to-implement-custom-types" title="Link to this heading">¶</a></h2>
+<p>To implement a custom type, you need to subclass the <a class="reference internal" href="../api/index.html#click.ParamType" title="click.ParamType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParamType</span></code></a> class. For simple cases, passing a Python
+function that fails with a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> is also supported, though discouraged. Override the <a class="reference internal" href="../api/index.html#click.ParamType.convert" title="click.ParamType.convert"><code class="xref py py-meth docutils literal notranslate"><span class="pre">convert()</span></code></a>
+method to convert the value from a string to the correct type.</p>
+<p>The following code implements an integer type that accepts hex and octal numbers in addition to normal integers, and
+converts them into regular integers.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BasedIntParamType</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">ParamType</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;integer&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">value</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;0x&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">value</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;0&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fail</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> is not a valid integer&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+
+<span class="n">BASED_INT</span> <span class="o">=</span> <span class="n">BasedIntParamType</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../api/index.html#click.ParamType.name" title="click.ParamType.name"><code class="xref py py-attr docutils literal notranslate"><span class="pre">name</span></code></a> attribute is optional and is used for documentation. Call <a class="reference internal" href="../api/index.html#click.ParamType.fail" title="click.ParamType.fail"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fail()</span></code></a> if
+conversion fails. The <code class="docutils literal notranslate"><span class="pre">param</span></code> and <code class="docutils literal notranslate"><span class="pre">ctx</span></code> arguments may be <code class="docutils literal notranslate"><span class="pre">None</span></code> in some cases such as prompts.</p>
+<p>Values from user input or the command line will be strings, but default values and Python arguments may already be the
+correct type. The custom type should check at the top if the value is already valid and pass it through to support those
+cases.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Parameter Types</a><ul>
+<li><a class="reference internal" href="index.html#built-in-types-examples">Built-in Types Examples</a><ul>
+<li><a class="reference internal" href="index.html#choice">Choice</a></li>
+<li><a class="reference internal" href="index.html#int-and-float-ranges">Int and Float Ranges</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="index.html#built-in-types-listing">Built-in Types Listing</a></li>
+<li><a class="reference internal" href="index.html#how-to-implement-custom-types">How to Implement Custom Types</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../parameters/index.html" title="previous chapter">Parameters</a>
+          <li>Next: <a href="../options/index.html" title="next chapter">Options</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

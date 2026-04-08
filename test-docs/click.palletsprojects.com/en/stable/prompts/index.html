@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>User Input Prompts &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Handling Files" href="../handling-files/index.html" />
+    <link rel="prev" title="Help Pages" href="../documentation/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/prompts/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../handling-files/index.html" title="Handling Files"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../documentation/index.html" title="Help Pages"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">User Input Prompts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="user-input-prompts">
+<h1>User Input Prompts<a class="headerlink" href="index.html#user-input-prompts" title="Link to this heading">¶</a></h1>
+<p>Click supports prompts in two different places. The first is automated prompts when the parameter handling happens, and
+the second is to ask for prompts at a later point independently.</p>
+<p>This can be accomplished with the <a class="reference internal" href="../api/index.html#click.prompt" title="click.prompt"><code class="xref py py-func docutils literal notranslate"><span class="pre">prompt()</span></code></a> function, which asks for valid input according to a type, or the
+<a class="reference internal" href="../api/index.html#click.confirm" title="click.confirm"><code class="xref py py-func docutils literal notranslate"><span class="pre">confirm()</span></code></a> function, which asks for confirmation (yes/no).</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#option-prompts" id="id1">Option Prompts</a></p></li>
+<li><p><a class="reference internal" href="index.html#input-prompts" id="id2">Input Prompts</a></p></li>
+<li><p><a class="reference internal" href="index.html#optional-prompts" id="id3">Optional Prompts</a></p></li>
+<li><p><a class="reference internal" href="index.html#confirmation-prompts" id="id4">Confirmation Prompts</a></p></li>
+<li><p><a class="reference internal" href="index.html#dynamic-defaults-for-prompts" id="id5">Dynamic Defaults for Prompts</a></p></li>
+</ul>
+</nav>
+<section id="option-prompts">
+<span id="option-prompting"></span><h2><a class="toc-backref" href="index.html#id1" role="doc-backlink">Option Prompts</a><a class="headerlink" href="index.html#option-prompts" title="Link to this heading">¶</a></h2>
+<p>Option prompts are integrated into the option interface. Internally, it automatically calls either <a class="reference internal" href="../api/index.html#click.prompt" title="click.prompt"><code class="xref py py-func docutils literal notranslate"><span class="pre">prompt()</span></code></a> or
+<a class="reference internal" href="../api/index.html#click.confirm" title="click.confirm"><code class="xref py py-func docutils literal notranslate"><span class="pre">confirm()</span></code></a> as necessary.</p>
+<p>In some cases, you want parameters that can be provided from the command line, but if not provided, ask for user input
+instead. This can be implemented with Click by defining a prompt string.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--name&#39;</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And what it looks like:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>hello<span class="w"> </span>--name<span class="o">=</span>John
+<span class="go">Hello John!</span>
+<span class="gp">$ </span>hello
+<span class="go">Name: John</span>
+<span class="go">Hello John!</span>
+</pre></div>
+</div>
+<p>If you are not happy with the default prompt string, you can ask for
+a different one:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--name&#39;</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="s1">&#39;Your name please&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>What it looks like:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>hello
+<span class="go">Your name please: John</span>
+<span class="go">Hello John!</span>
+</pre></div>
+</div>
+<p>It is advised that prompt not be used in conjunction with the multiple flag set to True. Instead, prompt in the function
+interactively.</p>
+<p>By default, the user will be prompted for an input if one was not passed through the command line. To turn this behavior
+off, see <a class="reference internal" href="../options/index.html#optional-value"><span class="std std-ref">Optional Value</span></a>.</p>
+</section>
+<section id="input-prompts">
+<h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">Input Prompts</a><a class="headerlink" href="index.html#input-prompts" title="Link to this heading">¶</a></h2>
+<p>To manually ask for user input, you can use the <a class="reference internal" href="../api/index.html#click.prompt" title="click.prompt"><code class="xref py py-func docutils literal notranslate"><span class="pre">prompt()</span></code></a> function. By default, it accepts any Unicode string, but
+you can ask for any other type. For instance, you can ask for a valid integer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">value</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="s1">&#39;Please enter a valid integer&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Additionally, the type will be determined automatically if a default value is provided. For instance, the following will
+only accept floats:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">value</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="s1">&#39;Please enter a number&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">42.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="optional-prompts">
+<h2><a class="toc-backref" href="index.html#id3" role="doc-backlink">Optional Prompts</a><a class="headerlink" href="index.html#optional-prompts" title="Link to this heading">¶</a></h2>
+<p>If the option has <code class="docutils literal notranslate"><span class="pre">prompt</span></code> enabled, then setting <code class="docutils literal notranslate"><span class="pre">prompt_required=False</span></code> tells Click to only show the prompt if the
+option’s flag is given, instead of if the option is not provided at all.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--name&#39;</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">prompt_required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;Default&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>hello
+<span class="go">Hello Default!</span>
+<span class="gp">$ </span>hello<span class="w"> </span>--name<span class="w"> </span>Value
+<span class="go">Hello Value!</span>
+<span class="gp">$ </span>hello<span class="w"> </span>--name
+<span class="go">Name [Default]: </span>
+</pre></div>
+</div>
+<p>If <code class="docutils literal notranslate"><span class="pre">required=True</span></code>, then the option will still prompt if it is not given, but it will also prompt if only the flag is
+given.</p>
+</section>
+<section id="confirmation-prompts">
+<h2><a class="toc-backref" href="index.html#id4" role="doc-backlink">Confirmation Prompts</a><a class="headerlink" href="index.html#confirmation-prompts" title="Link to this heading">¶</a></h2>
+<p>To ask if a user wants to continue with an action, the <a class="reference internal" href="../api/index.html#click.confirm" title="click.confirm"><code class="xref py py-func docutils literal notranslate"><span class="pre">confirm()</span></code></a> function comes in handy. By default, it returns
+the result of the prompt as a boolean value:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">click</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="s1">&#39;Do you want to continue?&#39;</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s1">&#39;Well done!&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>There is also the option to make the function automatically abort the execution of the program if it does not return
+<code class="docutils literal notranslate"><span class="pre">True</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">click</span><span class="o">.</span><span class="n">confirm</span><span class="p">(</span><span class="s1">&#39;Do you want to continue?&#39;</span><span class="p">,</span> <span class="n">abort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="dynamic-defaults-for-prompts">
+<h2><a class="toc-backref" href="index.html#id5" role="doc-backlink">Dynamic Defaults for Prompts</a><a class="headerlink" href="index.html#dynamic-defaults-for-prompts" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">auto_envvar_prefix</span></code> and <code class="docutils literal notranslate"><span class="pre">default_map</span></code> options for the context allow the program to read option values from the
+environment or a configuration file. However, this overrides the prompting mechanism, so that the user does not get the
+option to change the value interactively.</p>
+<p>If you want to let the user configure the default value, but still be prompted if the option isn’t specified on the
+command line, you can do so by supplying a callable as the default value. For example, to get a default from the
+environment:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--username&quot;</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;USER&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello, </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To describe what the default value will be, set it in <code class="docutils literal notranslate"><span class="pre">show_default</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span>
+    <span class="s2">&quot;--username&quot;</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">default</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;USER&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+    <span class="n">show_default</span><span class="o">=</span><span class="s2">&quot;current user&quot;</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello, </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>hello<span class="w"> </span>--help
+<span class="go">Usage: hello [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --username TEXT  [default: (current user)]</span>
+<span class="go">  --help           Show this message and exit.</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">User Input Prompts</a><ul>
+<li><a class="reference internal" href="index.html#option-prompts">Option Prompts</a></li>
+<li><a class="reference internal" href="index.html#input-prompts">Input Prompts</a></li>
+<li><a class="reference internal" href="index.html#optional-prompts">Optional Prompts</a></li>
+<li><a class="reference internal" href="index.html#confirmation-prompts">Confirmation Prompts</a></li>
+<li><a class="reference internal" href="index.html#dynamic-defaults-for-prompts">Dynamic Defaults for Prompts</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../documentation/index.html" title="previous chapter">Help Pages</a>
+          <li>Next: <a href="../handling-files/index.html" title="next chapter">Handling Files</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

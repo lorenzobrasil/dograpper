@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exception Handling and Exit Codes &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="General Command Line Topics" href="../command-line-reference/index.html" />
+    <link rel="prev" title="Shell Completion" href="../shell-completion/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/exceptions/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../command-line-reference/index.html" title="General Command Line Topics"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../shell-completion/index.html" title="Shell Completion"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Exception Handling and Exit Codes</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="exception-handling-and-exit-codes">
+<span id="exception-handling-exit-codes"></span><h1>Exception Handling and Exit Codes<a class="headerlink" href="index.html#exception-handling-and-exit-codes" title="Link to this heading">¶</a></h1>
+<p>Click internally uses exceptions to signal various error conditions that
+the user of the application might have caused. Primarily this is things
+like incorrect usage.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#where-are-errors-handled" id="id1">Where are Errors Handled?</a></p></li>
+<li><p><a class="reference internal" href="index.html#what-if-i-don-t-want-that" id="id2">What if I Don’t Want That?</a></p></li>
+<li><p><a class="reference internal" href="index.html#which-exceptions-exist" id="id3">Which Exceptions Exist?</a></p></li>
+<li><p><a class="reference internal" href="index.html#help-pages-and-exit-codes" id="id4">Help Pages and Exit Codes</a></p></li>
+</ul>
+</nav>
+<section id="where-are-errors-handled">
+<h2><a class="toc-backref" href="index.html#id1" role="doc-backlink">Where are Errors Handled?</a><a class="headerlink" href="index.html#where-are-errors-handled" title="Link to this heading">¶</a></h2>
+<p>Click’s main error handling is happening in <a class="reference internal" href="../api/index.html#click.Command.main" title="click.Command.main"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Command.main()</span></code></a>. In
+there it handles all subclasses of <a class="reference internal" href="../api/index.html#click.ClickException" title="click.ClickException"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ClickException</span></code></a> as well as the
+standard <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#EOFError" title="(in Python v3.14)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">EOFError</span></code></a> and <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#KeyboardInterrupt" title="(in Python v3.14)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">KeyboardInterrupt</span></code></a> exceptions. The
+latter are internally translated into an <a class="reference internal" href="../api/index.html#click.Abort" title="click.Abort"><code class="xref py py-exc docutils literal notranslate"><span class="pre">Abort</span></code></a>.</p>
+<p>The logic applied is the following:</p>
+<ol class="arabic simple">
+<li><p>If an <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#EOFError" title="(in Python v3.14)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">EOFError</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#KeyboardInterrupt" title="(in Python v3.14)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">KeyboardInterrupt</span></code></a> happens, reraise it
+as <a class="reference internal" href="../api/index.html#click.Abort" title="click.Abort"><code class="xref py py-exc docutils literal notranslate"><span class="pre">Abort</span></code></a>.</p></li>
+<li><p>If a <a class="reference internal" href="../api/index.html#click.ClickException" title="click.ClickException"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ClickException</span></code></a> is raised, invoke the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">ClickException.show()</span></code> method on it to display it and then exit
+the program with <code class="xref py py-attr docutils literal notranslate"><span class="pre">ClickException.exit_code</span></code>.</p></li>
+<li><p>If an <a class="reference internal" href="../api/index.html#click.Abort" title="click.Abort"><code class="xref py py-exc docutils literal notranslate"><span class="pre">Abort</span></code></a> exception is raised print the string <code class="docutils literal notranslate"><span class="pre">Aborted!</span></code>
+to standard error and exit the program with exit code <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p>If it goes through well, exit the program with exit code <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p></li>
+</ol>
+</section>
+<section id="what-if-i-don-t-want-that">
+<h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">What if I Don’t Want That?</a><a class="headerlink" href="index.html#what-if-i-don-t-want-that" title="Link to this heading">¶</a></h2>
+<p>Generally you always have the option to invoke the <a class="reference internal" href="../api/index.html#click.Command.invoke" title="click.Command.invoke"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Command.invoke()</span></code></a>
+method yourself. For instance if you have a <a class="reference internal" href="../api/index.html#click.Command" title="click.Command"><code class="xref py py-class docutils literal notranslate"><span class="pre">Command</span></code></a> you can
+invoke it manually like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ctx</span> <span class="o">=</span> <span class="n">command</span><span class="o">.</span><span class="n">make_context</span><span class="p">(</span><span class="s2">&quot;command-name&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;args&quot;</span><span class="p">,</span> <span class="s2">&quot;go&quot;</span><span class="p">,</span> <span class="s2">&quot;here&quot;</span><span class="p">])</span>
+<span class="k">with</span> <span class="n">ctx</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">command</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this case exceptions will not be handled at all and bubbled up as you
+would expect.</p>
+<p>Starting with Click 3.0 you can also use the <a class="reference internal" href="../api/index.html#click.Command.main" title="click.Command.main"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Command.main()</span></code></a> method
+but disable the standalone mode which will do two things: disable
+exception handling and disable the implicit <a class="reference external" href="https://docs.python.org/3/library/sys.html#sys.exit" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">sys.exit()</span></code></a> at the end.</p>
+<p>So you can do something like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">command</span><span class="o">.</span><span class="n">main</span><span class="p">(</span>
+    <span class="p">[</span><span class="s2">&quot;command-name&quot;</span><span class="p">,</span> <span class="s2">&quot;args&quot;</span><span class="p">,</span> <span class="s2">&quot;go&quot;</span><span class="p">,</span> <span class="s2">&quot;here&quot;</span><span class="p">],</span>
+    <span class="n">standalone_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="which-exceptions-exist">
+<h2><a class="toc-backref" href="index.html#id3" role="doc-backlink">Which Exceptions Exist?</a><a class="headerlink" href="index.html#which-exceptions-exist" title="Link to this heading">¶</a></h2>
+<p>Click has two exception bases: <a class="reference internal" href="../api/index.html#click.ClickException" title="click.ClickException"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ClickException</span></code></a> which is raised for
+all exceptions that Click wants to signal to the user and <a class="reference internal" href="../api/index.html#click.Abort" title="click.Abort"><code class="xref py py-exc docutils literal notranslate"><span class="pre">Abort</span></code></a>
+which is used to instruct Click to abort the execution.</p>
+<p>A <a class="reference internal" href="../api/index.html#click.ClickException" title="click.ClickException"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ClickException</span></code></a> has a <code class="xref py py-meth docutils literal notranslate"><span class="pre">ClickException.show()</span></code> method which
+can render an error message to stderr or the given file object. If you
+want to use the exception yourself for doing something check the API docs
+about what else they provide.</p>
+<p>The following common subclasses exist:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../api/index.html#click.UsageError" title="click.UsageError"><code class="xref py py-exc docutils literal notranslate"><span class="pre">UsageError</span></code></a> to inform the user that something went wrong.</p></li>
+<li><p><a class="reference internal" href="../api/index.html#click.BadParameter" title="click.BadParameter"><code class="xref py py-exc docutils literal notranslate"><span class="pre">BadParameter</span></code></a> to inform the user that something went wrong with
+a specific parameter. These are often handled internally in Click and
+augmented with extra information if possible. For instance if those
+are raised from a callback Click will automatically augment it with
+the parameter name if possible.</p></li>
+<li><p><a class="reference internal" href="../api/index.html#click.FileError" title="click.FileError"><code class="xref py py-exc docutils literal notranslate"><span class="pre">FileError</span></code></a> this is an error that is raised by the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">FileType</span></code> if Click encounters issues opening the file.</p></li>
+</ul>
+</section>
+<section id="help-pages-and-exit-codes">
+<span id="help-page-exit-codes"></span><h2><a class="toc-backref" href="index.html#id4" role="doc-backlink">Help Pages and Exit Codes</a><a class="headerlink" href="index.html#help-pages-and-exit-codes" title="Link to this heading">¶</a></h2>
+<p>Triggering the a help page intentionally (by passing in <code class="docutils literal notranslate"><span class="pre">--help</span></code>)
+returns exit code 0. If a help page is displayed due to incorrect user
+input, the program returns exit code 2. See <a class="reference internal" href="../command-line-reference/index.html#exit-codes"><span class="std std-ref">Exit Codes</span></a> for more
+general information.</p>
+<p>For clarity, here is an example.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s1">&#39;printer_group&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">printer_group</span><span class="p">():</span>
+    <span class="k">pass</span>
+
+<span class="nd">@printer_group</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;printer&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--this&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">this</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">this</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">this</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>printer-group<span class="w"> </span>--help
+<span class="go">Usage: printer-group [OPTIONS] COMMAND [ARGS]...</span>
+
+<span class="go">Options:</span>
+<span class="go">  --help  Show this message and exit.</span>
+
+<span class="go">Commands:</span>
+<span class="go">  printer</span>
+</pre></div>
+</div>
+<p>The above invocation returns exit code 0.</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>printer-group
+<span class="go">Usage: printer-group [OPTIONS] COMMAND [ARGS]...</span>
+
+<span class="go">Options:</span>
+<span class="go">  --help  Show this message and exit.</span>
+
+<span class="go">Commands:</span>
+<span class="go">  printer</span>
+</pre></div>
+</div>
+<p>The above invocation returns exit code 2 since the user invoked the command incorrectly. However, since this is such a common error when first using a command, Click invokes the help page for the user. To see that <code class="docutils literal notranslate"><span class="pre">printer-group</span></code> is an invalid invocation, turn <code class="docutils literal notranslate"><span class="pre">no_args_is_help</span></code> off.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s1">&#39;printer_group&#39;</span><span class="p">,</span> <span class="n">no_args_is_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">printer_group</span><span class="p">():</span>
+    <span class="k">pass</span>
+
+<span class="nd">@printer_group</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;printer&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--this&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">printer</span><span class="p">(</span><span class="n">this</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">this</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">this</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>printer-group
+<span class="go">Usage: printer-group [OPTIONS] COMMAND [ARGS]...</span>
+<span class="go">Try &#39;printer-group --help&#39; for help.</span>
+
+<span class="go">Error: Missing command.</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Exception Handling and Exit Codes</a><ul>
+<li><a class="reference internal" href="index.html#where-are-errors-handled">Where are Errors Handled?</a></li>
+<li><a class="reference internal" href="index.html#what-if-i-don-t-want-that">What if I Don’t Want That?</a></li>
+<li><a class="reference internal" href="index.html#which-exceptions-exist">Which Exceptions Exist?</a></li>
+<li><a class="reference internal" href="index.html#help-pages-and-exit-codes">Help Pages and Exit Codes</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../shell-completion/index.html" title="previous chapter">Shell Completion</a>
+          <li>Next: <a href="../command-line-reference/index.html" title="next chapter">General Command Line Topics</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

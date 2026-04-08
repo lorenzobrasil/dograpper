@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Supporting Multiple Versions &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="CLI Design Opinions" href="../design-opinions/index.html" />
+    <link rel="prev" title="Upgrade Guides" href="../upgrade-guides/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/support-multiple-versions/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../design-opinions/index.html" title="CLI Design Opinions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../upgrade-guides/index.html" title="Upgrade Guides"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Supporting Multiple Versions</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="supporting-multiple-versions">
+<h1>Supporting Multiple Versions<a class="headerlink" href="index.html#supporting-multiple-versions" title="Link to this heading">¶</a></h1>
+<p>If you are a library maintainer, you may want to support multiple versions of
+Click. See the Pallets <a class="reference external" href="https://palletsprojects.com/versions">version policy</a> for information about our version
+numbers and support policy.</p>
+<p>Most features of Click are stable across releases, and don’t require special
+handling. However, feature releases may deprecate and change APIs. Occasionally,
+a change will require special handling.</p>
+<section id="use-feature-detection">
+<h2>Use Feature Detection<a class="headerlink" href="index.html#use-feature-detection" title="Link to this heading">¶</a></h2>
+<p>Prefer using feature detection. Looking at the version can be tempting, but is
+often more brittle or results in more complicated code. Try to use <code class="docutils literal notranslate"><span class="pre">if</span></code> or <code class="docutils literal notranslate"><span class="pre">try</span></code>
+blocks to decide whether to use a new or old pattern.</p>
+<p>If you do need to look at the version, use <a class="reference external" href="https://docs.python.org/3/library/importlib.metadata.html#importlib.metadata.version" title="(in Python v3.14)"><code class="xref py py-func docutils literal notranslate"><span class="pre">importlib.metadata.version()</span></code></a>,
+the standardized way to get versions for any installed Python package.</p>
+</section>
+<section id="changes-in-8-2">
+<h2>Changes in 8.2<a class="headerlink" href="index.html#changes-in-8-2" title="Link to this heading">¶</a></h2>
+<section id="paramtype-methods-require-ctx">
+<h3><code class="docutils literal notranslate"><span class="pre">ParamType</span></code> methods require <code class="docutils literal notranslate"><span class="pre">ctx</span></code><a class="headerlink" href="index.html#paramtype-methods-require-ctx" title="Link to this heading">¶</a></h3>
+<p>In 8.2, several methods of <code class="docutils literal notranslate"><span class="pre">ParamType</span></code> now have a <code class="docutils literal notranslate"><span class="pre">ctx:</span> <span class="pre">click.Context</span></code>
+argument. Because this changes the signature of the methods from 8.1, it’s not
+obvious how to support both when subclassing or calling.</p>
+<p>This example uses <code class="docutils literal notranslate"><span class="pre">ParamType.get_metavar</span></code>, and the same technique should be
+applicable to other methods such as <code class="docutils literal notranslate"><span class="pre">get_missing_message</span></code>.</p>
+<p>Update your methods overrides to take the new <code class="docutils literal notranslate"><span class="pre">ctx</span></code> argument. Use the
+following decorator to wrap each method. In 8.1, it will get the context where
+possible and pass it using the 8.2 signature.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">t</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="n">F</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">t</span><span class="o">.</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">Any</span><span class="p">])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">add_ctx_arg</span><span class="p">(</span><span class="n">f</span><span class="p">:</span> <span class="n">F</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span><span class="p">:</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">t</span><span class="o">.</span><span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;ctx&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ctx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">get_current_context</span><span class="p">(</span><span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span>  <span class="c1"># type: ignore[return-value]</span>
+</pre></div>
+</div>
+<p>Here’s an example <code class="docutils literal notranslate"><span class="pre">ParamType</span></code> subclass which uses this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">CommaDelimitedString</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">ParamType</span><span class="p">):</span>
+    <span class="nd">@add_ctx_arg</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_metavar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">click</span><span class="o">.</span><span class="n">Context</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;TEXT,TEXT,...&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Supporting Multiple Versions</a><ul>
+<li><a class="reference internal" href="index.html#use-feature-detection">Use Feature Detection</a></li>
+<li><a class="reference internal" href="index.html#changes-in-8-2">Changes in 8.2</a><ul>
+<li><a class="reference internal" href="index.html#paramtype-methods-require-ctx"><code class="docutils literal notranslate"><span class="pre">ParamType</span></code> methods require <code class="docutils literal notranslate"><span class="pre">ctx</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../upgrade-guides/index.html" title="previous chapter">Upgrade Guides</a>
+          <li>Next: <a href="../design-opinions/index.html" title="next chapter">CLI Design Opinions</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

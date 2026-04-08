@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Handling Files &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Advanced Patterns" href="../advanced/index.html" />
+    <link rel="prev" title="User Input Prompts" href="../prompts/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/handling-files/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../advanced/index.html" title="Advanced Patterns"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../prompts/index.html" title="User Input Prompts"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Handling Files</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="handling-files">
+<span id="id1"></span><h1>Handling Files<a class="headerlink" href="index.html#handling-files" title="Link to this heading">¶</a></h1>
+<p>Click has built in features to support file and file path handling. The examples use arguments but the same principle
+applies to options as well.</p>
+<section id="file-arguments">
+<span id="file-args"></span><h2>File Arguments<a class="headerlink" href="index.html#file-arguments" title="Link to this heading">¶</a></h2>
+<p>Click supports working with files with the <a class="reference internal" href="../api/index.html#click.File" title="click.File"><code class="xref py py-class docutils literal notranslate"><span class="pre">File</span></code></a> type. Some notable features are:</p>
+<ul class="simple">
+<li><p>Support for <code class="docutils literal notranslate"><span class="pre">-</span></code> to mean a special file that refers to stdin when used for reading, and stdout when used for writing.
+This is a common pattern for POSIX command line utilities.</p></li>
+<li><p>Deals with <code class="docutils literal notranslate"><span class="pre">str</span></code> and <code class="docutils literal notranslate"><span class="pre">bytes</span></code> correctly for all versions of Python.</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;rb&#39;</span><span class="p">))</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="s1">&#39;wb&#39;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">inout</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Copy contents of INPUT to OUTPUT.&quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">output</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>inout<span class="w"> </span>-<span class="w"> </span>hello.txt
+<span class="go">hello</span>
+<span class="go">^D</span>
+<span class="gp">$ </span>inout<span class="w"> </span>hello.txt<span class="w"> </span>-
+<span class="go">hello</span>
+</pre></div>
+</div>
+</section>
+<section id="file-path-arguments">
+<h2>File Path Arguments<a class="headerlink" href="index.html#file-path-arguments" title="Link to this heading">¶</a></h2>
+<p>For handling paths, the <a class="reference internal" href="../api/index.html#click.Path" title="click.Path"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></a> type is better than a <code class="docutils literal notranslate"><span class="pre">str</span></code>. Some notable features are:</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">exists</span></code> argument will verify whether the path exists.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">readable</span></code>, <code class="docutils literal notranslate"><span class="pre">writable</span></code>, and <code class="docutils literal notranslate"><span class="pre">executable</span></code> can perform permission checks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">file_okay</span></code> and <code class="docutils literal notranslate"><span class="pre">dir_okay</span></code> allow specifying whether files/directories are accepted.</p></li>
+<li><p>Error messages are nicely formatted using <a class="reference internal" href="../api/index.html#click.format_filename" title="click.format_filename"><code class="xref py py-func docutils literal notranslate"><span class="pre">format_filename()</span></code></a> so any undecodable bytes will be printed nicely.</p></li>
+</ul>
+<p>See <a class="reference internal" href="../api/index.html#click.Path" title="click.Path"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></a> for all features.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">exists</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">touch</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print FILENAME if the file exists.&quot;&quot;&quot;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">format_filename</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>And from the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>touch<span class="w"> </span>hello.txt
+<span class="go">hello.txt</span>
+
+<span class="gp">$ </span>touch<span class="w"> </span>missing.txt
+<span class="go">Usage: touch [OPTIONS] FILENAME</span>
+<span class="go">Try &#39;touch --help&#39; for help.</span>
+
+<span class="go">Error: Invalid value for &#39;FILENAME&#39;: Path &#39;missing.txt&#39; does not exist.</span>
+</pre></div>
+</div>
+</section>
+<section id="file-opening-behaviors">
+<h2>File Opening Behaviors<a class="headerlink" href="index.html#file-opening-behaviors" title="Link to this heading">¶</a></h2>
+<p>The <a class="reference internal" href="../api/index.html#click.File" title="click.File"><code class="xref py py-class docutils literal notranslate"><span class="pre">File</span></code></a> type attempts to be “intelligent” about when to open a file. Stdin/stdout and files opened for reading
+will be opened immediately. This will give the user direct feedback when a file cannot be opened. Files opened for
+writing will only be open on the first IO operation. This is done by automatically wrapping the file in a special
+wrapper.</p>
+<p>File open behavior can be controlled by the boolean kwarg <code class="docutils literal notranslate"><span class="pre">lazy</span></code>. If a file is opened lazily:</p>
+<ul class="simple">
+<li><p>A failure at first IO operation will happen by raising an <a class="reference internal" href="../api/index.html#click.FileError" title="click.FileError"><code class="xref py py-exc docutils literal notranslate"><span class="pre">FileError</span></code></a>.</p></li>
+<li><p>It can help minimize resource handling confusion. If a file is opened in lazy mode, it will call
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">LazyFile.close_intelligently()</span></code> to help figure out if the file needs closing or not. This is not needed for
+parameters, but is necessary for manually prompting. For manual prompts with the <a class="reference internal" href="../api/index.html#click.prompt" title="click.prompt"><code class="xref py py-func docutils literal notranslate"><span class="pre">prompt()</span></code></a> function you do not
+know if a stream like stdout was opened (which was already open before) or a real file was opened (that needs
+closing).</p></li>
+</ul>
+<p>Since files opened for writing will typically empty the file, the lazy mode should only be disabled if the developer is
+absolutely sure that this is intended behavior.</p>
+<p>It is also possible to open files in atomic mode by passing <code class="docutils literal notranslate"><span class="pre">atomic=True</span></code>. In atomic mode, all writes go into a separate
+file in the same folder, and upon completion, the file will be moved over to the original location. This is useful if a
+file regularly read by other users is modified.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Handling Files</a><ul>
+<li><a class="reference internal" href="index.html#file-arguments">File Arguments</a></li>
+<li><a class="reference internal" href="index.html#file-path-arguments">File Path Arguments</a></li>
+<li><a class="reference internal" href="index.html#file-opening-behaviors">File Opening Behaviors</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../prompts/index.html" title="previous chapter">User Input Prompts</a>
+          <li>Next: <a href="../advanced/index.html" title="next chapter">Advanced Patterns</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

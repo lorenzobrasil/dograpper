@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Parameters &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Parameter Types" href="../parameter-types/index.html" />
+    <link rel="prev" title="Click Concepts" href="../click-concepts/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/parameters/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../parameter-types/index.html" title="Parameter Types"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../click-concepts/index.html" title="Click Concepts"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Parameters</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="parameters">
+<span id="id1"></span><h1>Parameters<a class="headerlink" href="index.html#parameters" title="Link to this heading">¶</a></h1>
+<p>Click supports only two principle types of parameters for scripts (by design): options and arguments.</p>
+<section id="options">
+<h2>Options<a class="headerlink" href="index.html#options" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Are optional.</p></li>
+<li><p>Recommended to use for everything except subcommands, urls, or files.</p></li>
+<li><p>Can take a fixed number of arguments. The default is 1. They may be specified multiple times using <a class="reference internal" href="../options/index.html#multiple-options"><span class="std std-ref">Multiple Options</span></a>.</p></li>
+<li><p>Are fully documented by the help page.</p></li>
+<li><p>Have automatic prompting for missing input.</p></li>
+<li><p>Can act as flags (boolean or otherwise).</p></li>
+<li><p>Can be pulled from environment variables.</p></li>
+</ul>
+</section>
+<section id="arguments">
+<h2>Arguments<a class="headerlink" href="index.html#arguments" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Are optional with in reason, but not entirely so.</p></li>
+<li><p>Recommended to use for subcommands, urls, or files.</p></li>
+<li><p>Can take an arbitrary number of arguments.</p></li>
+<li><p>Are not fully documented by the help page since they may be too specific to be automatically documented. For more see <a class="reference internal" href="../documentation/index.html#documenting-arguments"><span class="std std-ref">Documenting Arguments</span></a>.</p></li>
+<li><p>Can be pulled from environment variables but only explicitly named ones. For more see <a class="reference internal" href="../arguments/index.html#environment-variables"><span class="std std-ref">Environment Variables</span></a>.</p></li>
+</ul>
+<p>On each principle type you can specify <a class="reference internal" href="../parameter-types/index.html#parameter-types"><span class="std std-ref">Parameter Types</span></a>. Specifying these types helps Click add details to your help pages and help with the handling of those types.</p>
+</section>
+<section id="parameter-names">
+<span id="id2"></span><h2>Parameter Names<a class="headerlink" href="index.html#parameter-names" title="Link to this heading">¶</a></h2>
+<p>Parameters (options and arguments) have a name that will be used as
+the Python argument name when calling the decorated function with
+values.</p>
+<p>In the example, the argument’s name is <code class="docutils literal notranslate"><span class="pre">filename</span></code>. The name must match the python arg name. To provide a different name for use in help text, see <a class="reference internal" href="../documentation/index.html#doc-meta-variables"><span class="std std-ref">Placeholder / Meta Variable</span></a>.
+The option’s names are <code class="docutils literal notranslate"><span class="pre">-t</span></code> and <code class="docutils literal notranslate"><span class="pre">--times</span></code>. More names are available for options and are covered in <a class="reference internal" href="../options/index.html#options"><span class="std std-ref">Options</span></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;filename&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="s1">&#39;--times&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">multi_echo</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">times</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print value filename multiple times.&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">times</span><span class="p">):</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>multi_echo<span class="w"> </span>--times<span class="o">=</span><span class="m">3</span><span class="w"> </span>index.txt
+<span class="go">index.txt</span>
+<span class="go">index.txt</span>
+<span class="go">index.txt</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Parameters</a><ul>
+<li><a class="reference internal" href="index.html#options">Options</a></li>
+<li><a class="reference internal" href="index.html#arguments">Arguments</a></li>
+<li><a class="reference internal" href="index.html#parameter-names">Parameter Names</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../click-concepts/index.html" title="previous chapter">Click Concepts</a>
+          <li>Next: <a href="../parameter-types/index.html" title="next chapter">Parameter Types</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Windows Console Notes &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="API" href="../api/index.html" />
+    <link rel="prev" title="Unicode Support" href="../unicode-support/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/wincmd/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../api/index.html" title="API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../unicode-support/index.html" title="Unicode Support"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Windows Console Notes</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="windows-console-notes">
+<h1>Windows Console Notes<a class="headerlink" href="index.html#windows-console-notes" title="Link to this heading">¶</a></h1>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionadded">
+<p><span class="versionmodified added">Added in version 6.0.</span></p>
+</div>
+</details><p>Click emulates output streams on Windows to support unicode to the Windows console through separate APIs and we perform
+different decoding of parameters.</p>
+<p>Here is a brief overview of how this works and what it means to you.</p>
+<section id="unicode-arguments">
+<h2>Unicode Arguments<a class="headerlink" href="index.html#unicode-arguments" title="Link to this heading">¶</a></h2>
+<p>Click internally is generally based on the concept that any argument can come in as either byte string or unicode string
+and conversion is performed to the type expected value as late as possible. This has some advantages as it allows us to
+accept the data in the most appropriate form for the operating system and Python version.</p>
+<p>This caused some problems on Windows where initially the wrong encoding was used and garbage ended up in your input
+data. We not only fixed the encoding part, but we also now extract unicode parameters from <code class="docutils literal notranslate"><span class="pre">sys.argv</span></code>.</p>
+<p>There is also another limitation with this: if <code class="docutils literal notranslate"><span class="pre">sys.argv</span></code> was modified prior to invoking a click handler, we have to
+fall back to the regular byte input in which case not all unicode values are available but only a subset of the codepage
+used for parameters.</p>
+</section>
+<section id="unicode-output-and-input">
+<h2>Unicode Output and Input<a class="headerlink" href="index.html#unicode-output-and-input" title="Link to this heading">¶</a></h2>
+<p>Unicode output and input on Windows is implemented through the concept of a dispatching text stream. What this means is
+that when click first needs a text output (or input) stream on windows it goes through a few checks to figure out of a
+windows console is connected or not. If no Windows console is present then the text output stream is returned as such
+and the encoding for that stream is set to <code class="docutils literal notranslate"><span class="pre">utf-8</span></code> like on all platforms.</p>
+<p>However if a console is connected the stream will instead be emulated and use the cmd.exe unicode APIs to output text
+information. In this case the stream will also use <code class="docutils literal notranslate"><span class="pre">utf-16-le</span></code> as internal encoding. However there is some hackery going
+on that the underlying raw IO buffer is still bypassing the unicode APIs and byte output through an indirection is still
+possible.</p>
+<ul class="simple">
+<li><p>This unicode support is limited to <code class="docutils literal notranslate"><span class="pre">click.echo</span></code>, <code class="docutils literal notranslate"><span class="pre">click.prompt</span></code> as well as <code class="docutils literal notranslate"><span class="pre">click.get_text_stream</span></code>.</p></li>
+<li><p>Depending on if unicode values or byte strings are passed the control flow goes completely different places internally
+which can have some odd artifacts if data partially ends up being buffered. Click attempts to protect against that by
+manually always flushing but if you are mixing and matching different string types to <code class="docutils literal notranslate"><span class="pre">stdout</span></code> or <code class="docutils literal notranslate"><span class="pre">stderr</span></code> you will
+need to manually flush.</p></li>
+<li><p>The raw output stream is set to binary mode, which is a global operation on Windows, so <code class="docutils literal notranslate"><span class="pre">print</span></code> calls will be
+affected. Prefer <code class="docutils literal notranslate"><span class="pre">click.echo</span></code> over <code class="docutils literal notranslate"><span class="pre">print</span></code>.</p></li>
+<li><p>On Windows 7 and below, there is a limitation where at most 64k characters can be written in one call in binary mode.
+In this situation, <code class="docutils literal notranslate"><span class="pre">sys.stdout</span></code> and <code class="docutils literal notranslate"><span class="pre">sys.stderr</span></code> are replaced with wrappers that work around the limitation.</p></li>
+</ul>
+<p>Another important thing to note is that the Windows console’s default fonts do not support a lot of characters which
+means that you are mostly limited to international letters but no emojis or special characters.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Windows Console Notes</a><ul>
+<li><a class="reference internal" href="index.html#unicode-arguments">Unicode Arguments</a></li>
+<li><a class="reference internal" href="index.html#unicode-output-and-input">Unicode Output and Input</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../unicode-support/index.html" title="previous chapter">Unicode Support</a>
+          <li>Next: <a href="../api/index.html" title="next chapter">API</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

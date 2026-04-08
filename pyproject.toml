@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dograpper"
+version = "0.1.0"
+description = "CLI to download and pack documentation for NotebookLM"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "pathspec>=1.0.4",
+]
+
+[project.optional-dependencies]
+headless = ["playwright>=1.40"]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+dograpper = "dograpper.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

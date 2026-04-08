@@ -1,0 +1,14 @@
+{
+  "download": {
+    "depth": 3,
+    "include-extensions": "html,md",
+    "manifest": ".dograpper-manifest.json"
+  },
+  "pack": {
+    "max-words-per-chunk": 400000,
+    "max-chunks": 50,
+    "strategy": "semantic",
+    "format": "md",
+    "with-index": true
+  }
+}

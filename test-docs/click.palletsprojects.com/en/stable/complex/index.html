@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Complex Applications &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Extending Click" href="../extending-click/index.html" />
+    <link rel="prev" title="Advanced Patterns" href="../advanced/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/complex/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../extending-click/index.html" title="Extending Click"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../advanced/index.html" title="Advanced Patterns"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Complex Applications</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="complex-applications">
+<span id="complex-guide"></span><h1>Complex Applications<a class="headerlink" href="index.html#complex-applications" title="Link to this heading">¶</a></h1>
+<p>Click is designed to assist with the creation of complex and simple CLI tools
+alike.  However, the power of its design is the ability to arbitrarily nest
+systems together.  For instance, if you have ever used Django, you will
+have realized that it provides a command line utility, but so does Celery.
+When using Celery with Django, there are two tools that need to interact with
+each other and be cross-configured.</p>
+<p>In a theoretical world of two separate Click command line utilities, they
+could solve this problem by nesting one inside the other.  For instance, the
+web framework could also load the commands for the message queue framework.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#basic-concepts" id="id1">Basic Concepts</a></p></li>
+<li><p><a class="reference internal" href="index.html#building-a-git-clone" id="id2">Building a Git Clone</a></p></li>
+<li><p><a class="reference internal" href="index.html#lazily-loading-subcommands" id="id3">Lazily Loading Subcommands</a></p></li>
+</ul>
+</nav>
+<section id="basic-concepts">
+<h2><a class="toc-backref" href="index.html#id1" role="doc-backlink">Basic Concepts</a><a class="headerlink" href="index.html#basic-concepts" title="Link to this heading">¶</a></h2>
+<p>To understand how this works, you need to understand two concepts: contexts
+and the calling convention.</p>
+<section id="contexts">
+<h3>Contexts<a class="headerlink" href="index.html#contexts" title="Link to this heading">¶</a></h3>
+<p>Whenever a Click command is executed, a <a class="reference internal" href="../api/index.html#click.Context" title="click.Context"><code class="xref py py-class docutils literal notranslate"><span class="pre">Context</span></code></a> object is created
+which holds state for this particular invocation.  It remembers parsed
+parameters, what command created it, which resources need to be cleaned up
+at the end of the function, and so forth.  It can also optionally hold an
+application-defined object.</p>
+<p>Context objects build a linked list until they hit the top one.  Each context
+is linked to a parent context.  This allows a command to work below
+another command and store its own information there without having to be
+afraid of altering up the state of the parent command.</p>
+<p>Because the parent data is available, however, it is possible to navigate to
+it if needed.</p>
+<p>Most of the time, you do not see the context object, but when writing more
+complex applications it comes in handy.  This brings us to the next point.</p>
+</section>
+<section id="calling-convention">
+<h3>Calling Convention<a class="headerlink" href="index.html#calling-convention" title="Link to this heading">¶</a></h3>
+<p>When a Click command callback is executed, it’s passed all the non-hidden
+parameters as keyword arguments.  Notably absent is the context.  However,
+a callback can opt into being passed to the context object by marking itself
+with <a class="reference internal" href="../api/index.html#click.pass_context" title="click.pass_context"><code class="xref py py-func docutils literal notranslate"><span class="pre">pass_context()</span></code></a>.</p>
+<p>So how do you invoke a command callback if you don’t know if it should
+receive the context or not?  The answer is that the context itself
+provides a helper function (<a class="reference internal" href="../api/index.html#click.Context.invoke" title="click.Context.invoke"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Context.invoke()</span></code></a>) which can do this for
+you.  It accepts the callback as first argument and then invokes the
+function correctly.</p>
+</section>
+</section>
+<section id="building-a-git-clone">
+<h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">Building a Git Clone</a><a class="headerlink" href="index.html#building-a-git-clone" title="Link to this heading">¶</a></h2>
+<p>In this example, we want to build a command line tool that resembles a
+version control system.  Systems like Git usually provide one
+over-arching command that already accepts some parameters and
+configuration, and then have extra subcommands that do other things.</p>
+<section id="the-root-command">
+<h3>The Root Command<a class="headerlink" href="index.html#the-root-command" title="Link to this heading">¶</a></h3>
+<p>At the top level, we need a group that can hold all our commands.  In this
+case, we use the basic <a class="reference internal" href="../api/index.html#click.group" title="click.group"><code class="xref py py-func docutils literal notranslate"><span class="pre">click.group()</span></code></a> which allows us to register
+other Click commands below it.</p>
+<p>For this command, we also want to accept some parameters that configure the
+state of our tool:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Repo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">home</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">home</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">home</span> <span class="ow">or</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--repo-home&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="s1">&#39;REPO_HOME&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;.repo&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--debug/--no-debug&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+              <span class="n">envvar</span><span class="o">=</span><span class="s1">&#39;REPO_DEBUG&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">pass_context</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">repo_home</span><span class="p">,</span> <span class="n">debug</span><span class="p">):</span>
+    <span class="n">ctx</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">Repo</span><span class="p">(</span><span class="n">repo_home</span><span class="p">,</span> <span class="n">debug</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Let’s understand what this does.  We create a group command which can
+have subcommands.  When it is invoked, it will create an instance of a
+<code class="docutils literal notranslate"><span class="pre">Repo</span></code> class.  This holds the state for our command line tool.  In this
+case, it just remembers some parameters, but at this point it could also
+start loading configuration files and so on.</p>
+<p>This state object is then remembered by the context as <a class="reference internal" href="../api/index.html#click.Context.obj" title="click.Context.obj"><code class="xref py py-attr docutils literal notranslate"><span class="pre">obj</span></code></a>.
+This is a special attribute where commands are supposed to remember what
+they need to pass on to their children.</p>
+<p>In order for this to work, we need to mark our function with
+<a class="reference internal" href="../api/index.html#click.pass_context" title="click.pass_context"><code class="xref py py-func docutils literal notranslate"><span class="pre">pass_context()</span></code></a>, because otherwise, the context object would be
+entirely hidden from us.</p>
+</section>
+<section id="the-first-child-command">
+<h3>The First Child Command<a class="headerlink" href="index.html#the-first-child-command" title="Link to this heading">¶</a></h3>
+<p>Let’s add our first child command to it, the clone command:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;dest&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">clone</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<p>So now we have a clone command, but how do we get access to the repo?  As
+you can imagine, one way is to use the <a class="reference internal" href="../api/index.html#click.pass_context" title="click.pass_context"><code class="xref py py-func docutils literal notranslate"><span class="pre">pass_context()</span></code></a> function which
+again will make our callback also get the context passed on which we
+memorized the repo.  However, there is a second version of this decorator
+called <a class="reference internal" href="../api/index.html#click.pass_obj" title="click.pass_obj"><code class="xref py py-func docutils literal notranslate"><span class="pre">pass_obj()</span></code></a> which will just pass the stored object, (in our case
+the repo):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;dest&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">pass_obj</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">clone</span><span class="p">(</span><span class="n">repo</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="interleaved-commands">
+<h3>Interleaved Commands<a class="headerlink" href="index.html#interleaved-commands" title="Link to this heading">¶</a></h3>
+<p>While not relevant for the particular program we want to build, there is
+also quite good support for interleaving systems.  Imagine for instance that
+there was a super cool plugin for our version control system that needed a
+lot of configuration and wanted to store its own configuration as
+<a class="reference internal" href="../api/index.html#click.Context.obj" title="click.Context.obj"><code class="xref py py-attr docutils literal notranslate"><span class="pre">obj</span></code></a>.  If we would then attach another command below that,
+we would all of a sudden get the plugin configuration instead of our repo
+object.</p>
+<p>One obvious way to remedy this is to store a reference to the repo in the
+plugin, but then a command needs to be aware that it’s attached below such a
+plugin.</p>
+<p>There is a much better system that can be built by taking advantage of the
+linked nature of contexts.  We know that the plugin context is linked to the
+context that created our repo.  Because of that, we can start a search for
+the last level where the object stored by the context was a repo.</p>
+<p>Built-in support for this is provided by the <a class="reference internal" href="../api/index.html#click.make_pass_decorator" title="click.make_pass_decorator"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_pass_decorator()</span></code></a>
+factory, which will create decorators for us that find objects (it
+internally calls into <a class="reference internal" href="../api/index.html#click.Context.find_object" title="click.Context.find_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Context.find_object()</span></code></a>).  In our case, we
+know that we want to find the closest <code class="docutils literal notranslate"><span class="pre">Repo</span></code> object, so let’s make a
+decorator for this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pass_repo</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">make_pass_decorator</span><span class="p">(</span><span class="n">Repo</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If we now use <code class="docutils literal notranslate"><span class="pre">pass_repo</span></code> instead of <code class="docutils literal notranslate"><span class="pre">pass_obj</span></code>, we will always get a
+repo instead of something else:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;src&#39;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">argument</span><span class="p">(</span><span class="s1">&#39;dest&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nd">@pass_repo</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">clone</span><span class="p">(</span><span class="n">repo</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="ensuring-object-creation">
+<h3>Ensuring Object Creation<a class="headerlink" href="index.html#ensuring-object-creation" title="Link to this heading">¶</a></h3>
+<p>The above example only works if there was an outer command that created a
+<code class="docutils literal notranslate"><span class="pre">Repo</span></code> object and stored it in the context.  For some more advanced use
+cases, this might become a problem.  The default behavior of
+<a class="reference internal" href="../api/index.html#click.make_pass_decorator" title="click.make_pass_decorator"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_pass_decorator()</span></code></a> is to call <a class="reference internal" href="../api/index.html#click.Context.find_object" title="click.Context.find_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Context.find_object()</span></code></a>
+which will find the object.  If it can’t find the object,
+<a class="reference internal" href="../api/index.html#click.make_pass_decorator" title="click.make_pass_decorator"><code class="xref py py-meth docutils literal notranslate"><span class="pre">make_pass_decorator()</span></code></a> will raise an error.
+The alternative behavior is to use <a class="reference internal" href="../api/index.html#click.Context.ensure_object" title="click.Context.ensure_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Context.ensure_object()</span></code></a>
+which will find the object, and if it cannot find it, will create one and
+store it in the innermost context.  This behavior can also be enabled for
+<a class="reference internal" href="../api/index.html#click.make_pass_decorator" title="click.make_pass_decorator"><code class="xref py py-func docutils literal notranslate"><span class="pre">make_pass_decorator()</span></code></a> by passing <code class="docutils literal notranslate"><span class="pre">ensure=True</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pass_repo</span> <span class="o">=</span> <span class="n">click</span><span class="o">.</span><span class="n">make_pass_decorator</span><span class="p">(</span><span class="n">Repo</span><span class="p">,</span> <span class="n">ensure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this case, the innermost context gets an object created if it is
+missing.  This might replace objects being placed there earlier.  In this
+case, the command stays executable, even if the outer command does not run.
+For this to work, the object type needs to have a constructor that accepts
+no arguments.</p>
+<p>As such it runs standalone:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@pass_repo</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cp</span><span class="p">(</span><span class="n">repo</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">repo</span><span class="p">,</span> <span class="n">Repo</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>As you can see:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>cp
+<span class="go">True</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="lazily-loading-subcommands">
+<h2><a class="toc-backref" href="index.html#id3" role="doc-backlink">Lazily Loading Subcommands</a><a class="headerlink" href="index.html#lazily-loading-subcommands" title="Link to this heading">¶</a></h2>
+<p>Large CLIs and CLIs with slow imports may benefit from deferring the loading of
+subcommands. The interfaces which support this mode of use are
+<a class="reference internal" href="../api/index.html#click.Group.list_commands" title="click.Group.list_commands"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Group.list_commands()</span></code></a> and <a class="reference internal" href="../api/index.html#click.Group.get_command" title="click.Group.get_command"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Group.get_command()</span></code></a>. A custom
+<a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> subclass can implement a lazy loader by storing extra data such
+that <a class="reference internal" href="../api/index.html#click.Group.get_command" title="click.Group.get_command"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Group.get_command()</span></code></a> is responsible for running imports.</p>
+<p>Since the primary case for this is a <a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> which loads its subcommands lazily,
+the following example shows a lazy-group implementation.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Lazy loading of python code can result in hard to track down bugs, circular imports
+in order-dependent codebases, and other surprising behaviors. It is recommended that
+this technique only be used in concert with testing which will at least run the
+<code class="docutils literal notranslate"><span class="pre">--help</span></code> on each subcommand. That will guarantee that each subcommand can be loaded
+successfully.</p>
+</div>
+<section id="defining-the-lazy-group">
+<h3>Defining the Lazy Group<a class="headerlink" href="index.html#defining-the-lazy-group" title="Link to this heading">¶</a></h3>
+<p>The following <a class="reference internal" href="../api/index.html#click.Group" title="click.Group"><code class="xref py py-class docutils literal notranslate"><span class="pre">Group</span></code></a> subclass adds an attribute, <code class="docutils literal notranslate"><span class="pre">lazy_subcommands</span></code>, which
+stores a mapping from subcommand names to the information for importing them.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># in lazy_group.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LazyGroup</span><span class="p">(</span><span class="n">click</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">lazy_subcommands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># lazy_subcommands is a map of the form:</span>
+        <span class="c1">#</span>
+        <span class="c1">#   {command-name} -&gt; {module-name}.{command-object-name}</span>
+        <span class="c1">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lazy_subcommands</span> <span class="o">=</span> <span class="n">lazy_subcommands</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_commands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">list_commands</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="n">lazy</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lazy_subcommands</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">base</span> <span class="o">+</span> <span class="n">lazy</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">cmd_name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">cmd_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">lazy_subcommands</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_load</span><span class="p">(</span><span class="n">cmd_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_command</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cmd_name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_lazy_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd_name</span><span class="p">):</span>
+        <span class="c1"># lazily loading a command, first get the module name and attribute name</span>
+        <span class="n">import_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lazy_subcommands</span><span class="p">[</span><span class="n">cmd_name</span><span class="p">]</span>
+        <span class="n">modname</span><span class="p">,</span> <span class="n">cmd_object_name</span> <span class="o">=</span> <span class="n">import_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># do the import</span>
+        <span class="n">mod</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+        <span class="c1"># get the Command object from that module</span>
+        <span class="n">cmd_object</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">cmd_object_name</span><span class="p">)</span>
+        <span class="c1"># check the result to make debugging easier</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd_object</span><span class="p">,</span> <span class="n">click</span><span class="o">.</span><span class="n">Command</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Lazy loading of </span><span class="si">{</span><span class="n">import_path</span><span class="si">}</span><span class="s2"> failed by returning &quot;</span>
+                <span class="s2">&quot;a non-command object&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cmd_object</span>
+</pre></div>
+</div>
+</section>
+<section id="using-lazygroup-to-define-a-cli">
+<h3>Using LazyGroup To Define a CLI<a class="headerlink" href="index.html#using-lazygroup-to-define-a-cli" title="Link to this heading">¶</a></h3>
+<p>With <code class="docutils literal notranslate"><span class="pre">LazyGroup</span></code> defined, it’s now possible to write a group which lazily loads its
+subcommands like so:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># in main.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lazy_group</span><span class="w"> </span><span class="kn">import</span> <span class="n">LazyGroup</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
+    <span class="bp">cls</span><span class="o">=</span><span class="n">LazyGroup</span><span class="p">,</span>
+    <span class="n">lazy_subcommands</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;foo&quot;</span><span class="p">:</span> <span class="s2">&quot;foo.cli&quot;</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span><span class="p">:</span> <span class="s2">&quot;bar.cli&quot;</span><span class="p">},</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;main CLI command for lazy example&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># in foo.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="s2">&quot;foo command for lazy example&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># in bar.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lazy_group</span><span class="w"> </span><span class="kn">import</span> <span class="n">LazyGroup</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
+    <span class="bp">cls</span><span class="o">=</span><span class="n">LazyGroup</span><span class="p">,</span>
+    <span class="n">lazy_subcommands</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;baz&quot;</span><span class="p">:</span> <span class="s2">&quot;baz.cli&quot;</span><span class="p">},</span>
+    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;bar command for lazy example&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># in baz.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">click</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">help</span><span class="o">=</span><span class="s2">&quot;baz command for lazy example&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cli</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="what-triggers-lazy-loading">
+<h3>What triggers Lazy Loading?<a class="headerlink" href="index.html#what-triggers-lazy-loading" title="Link to this heading">¶</a></h3>
+<p>There are several events which may trigger lazy loading by running the
+<a class="reference internal" href="../api/index.html#click.Group.get_command" title="click.Group.get_command"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Group.get_command()</span></code></a> function.
+Some are intuititve, and some are less so.</p>
+<p>All cases are described with respect to the above example, assuming the main program
+name is <code class="docutils literal notranslate"><span class="pre">cli</span></code>.</p>
+<ol class="arabic simple">
+<li><p>Command resolution. If a user runs <code class="docutils literal notranslate"><span class="pre">cli</span> <span class="pre">bar</span> <span class="pre">baz</span></code>, this must first resolve <code class="docutils literal notranslate"><span class="pre">bar</span></code>,
+and then resolve <code class="docutils literal notranslate"><span class="pre">baz</span></code>. Each subcommand resolution step does a lazy load.</p></li>
+<li><p>Helptext rendering. In order to get the short help description of subcommands,
+<code class="docutils literal notranslate"><span class="pre">cli</span> <span class="pre">--help</span></code> will load <code class="docutils literal notranslate"><span class="pre">foo</span></code> and <code class="docutils literal notranslate"><span class="pre">bar</span></code>. Note that it will still not load
+<code class="docutils literal notranslate"><span class="pre">baz</span></code>.</p></li>
+<li><p>Shell completion. In order to get the subcommands of a lazy command, <code class="docutils literal notranslate"><span class="pre">cli</span> <span class="pre">&lt;TAB&gt;</span></code>
+will need to resolve the subcommands of <code class="docutils literal notranslate"><span class="pre">cli</span></code>. This process will trigger the lazy
+loads.</p></li>
+</ol>
+</section>
+<section id="further-deferring-imports">
+<h3>Further Deferring Imports<a class="headerlink" href="index.html#further-deferring-imports" title="Link to this heading">¶</a></h3>
+<p>It is possible to make the process even lazier, but it is generally more difficult the
+more you want to defer work.</p>
+<p>For example, subcommands could be represented as a custom <a class="reference internal" href="../api/index.html#click.Command" title="click.Command"><code class="xref py py-class docutils literal notranslate"><span class="pre">Command</span></code></a> subclass
+which defers importing the command until it is invoked, but which provides
+<a class="reference internal" href="../api/index.html#click.Command.get_short_help_str" title="click.Command.get_short_help_str"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Command.get_short_help_str()</span></code></a> in order to support completions and helptext.
+More simply, commands can be constructed whose callback functions defer any actual work
+until after an import.</p>
+<p>This command definition provides <code class="docutils literal notranslate"><span class="pre">foo</span></code>, but any of the work associated with importing
+the “real” callback function is deferred until invocation time:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;-w&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mylibrary</span><span class="w"> </span><span class="kn">import</span> <span class="n">foo_concrete</span>
+
+    <span class="n">foo_concrete</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Because Click builds helptext and usage info from options, arguments, and command
+attributes, it has no awareness that the underlying function is in any way handling a
+deferred import. Therefore, all Click-provided utilities and functionality will work
+as normal on such a command.</p>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Complex Applications</a><ul>
+<li><a class="reference internal" href="index.html#basic-concepts">Basic Concepts</a><ul>
+<li><a class="reference internal" href="index.html#contexts">Contexts</a></li>
+<li><a class="reference internal" href="index.html#calling-convention">Calling Convention</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="index.html#building-a-git-clone">Building a Git Clone</a><ul>
+<li><a class="reference internal" href="index.html#the-root-command">The Root Command</a></li>
+<li><a class="reference internal" href="index.html#the-first-child-command">The First Child Command</a></li>
+<li><a class="reference internal" href="index.html#interleaved-commands">Interleaved Commands</a></li>
+<li><a class="reference internal" href="index.html#ensuring-object-creation">Ensuring Object Creation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="index.html#lazily-loading-subcommands">Lazily Loading Subcommands</a><ul>
+<li><a class="reference internal" href="index.html#defining-the-lazy-group">Defining the Lazy Group</a></li>
+<li><a class="reference internal" href="index.html#using-lazygroup-to-define-a-cli">Using LazyGroup To Define a CLI</a></li>
+<li><a class="reference internal" href="index.html#what-triggers-lazy-loading">What triggers Lazy Loading?</a></li>
+<li><a class="reference internal" href="index.html#further-deferring-imports">Further Deferring Imports</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../advanced/index.html" title="previous chapter">Advanced Patterns</a>
+          <li>Next: <a href="../extending-click/index.html" title="next chapter">Extending Click</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

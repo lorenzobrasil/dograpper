@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Options &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Options Shortcut Decorators" href="../option-decorators/index.html" />
+    <link rel="prev" title="Parameter Types" href="../parameter-types/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/options/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../option-decorators/index.html" title="Options Shortcut Decorators"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../parameter-types/index.html" title="Parameter Types"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">Options</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="options">
+<span id="id1"></span><h1>Options<a class="headerlink" href="index.html#options" title="Link to this heading">¶</a></h1>
+<p>Adding options to commands can be accomplished with the <a class="reference internal" href="../api/index.html#click.option" title="click.option"><code class="xref py py-func docutils literal notranslate"><span class="pre">option()</span></code></a>
+decorator. At runtime the decorator invokes the <a class="reference internal" href="../api/index.html#click.Option" title="click.Option"><code class="xref py py-class docutils literal notranslate"><span class="pre">Option</span></code></a> class. Options in Click are distinct from <a class="reference internal" href="../arguments/index.html#arguments"><span class="std std-ref">positional arguments</span></a>.</p>
+<p>Useful and often used kwargs are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">default</span></code>: Passes a default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">help</span></code>: Sets help message.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nargs</span></code>: Sets the number of arguments.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">required</span></code>: Makes option required.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: Sets <a class="reference internal" href="../parameter-types/index.html#parameter-types"><span class="std std-ref">parameter type</span></a></p></li>
+</ul>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#option-decorator" id="id5">Option Decorator</a></p></li>
+<li><p><a class="reference internal" href="index.html#basic-example" id="id6">Basic Example</a></p></li>
+<li><p><a class="reference internal" href="index.html#setting-a-default" id="id7">Setting a Default</a></p></li>
+<li><p><a class="reference internal" href="index.html#multi-value-options" id="id8">Multi Value Options</a></p></li>
+<li><p><a class="reference internal" href="index.html#multi-value-options-as-tuples" id="id9">Multi Value Options as Tuples</a></p></li>
+<li><p><a class="reference internal" href="index.html#multiple-options" id="id10">Multiple Options</a></p></li>
+<li><p><a class="reference internal" href="index.html#counting" id="id11">Counting</a></p></li>
+<li><p><a class="reference internal" href="index.html#boolean" id="id12">Boolean</a></p></li>
+<li><p><a class="reference internal" href="index.html#flag-value" id="id13">Flag Value</a></p></li>
+<li><p><a class="reference internal" href="index.html#values-from-environment-variables" id="id14">Values from Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="index.html#multiple-options-from-environment-values" id="id15">Multiple Options from Environment Values</a></p></li>
+<li><p><a class="reference internal" href="index.html#other-prefix-characters" id="id16">Other Prefix Characters</a></p></li>
+<li><p><a class="reference internal" href="index.html#optional-value" id="id17">Optional Value</a></p></li>
+</ul>
+</nav>
+<section id="option-decorator">
+<h2><a class="toc-backref" href="index.html#id5" role="doc-backlink">Option Decorator</a><a class="headerlink" href="index.html#option-decorator" title="Link to this heading">¶</a></h2>
+<p>The <a class="reference internal" href="../api/index.html#click.option" title="click.option"><code class="xref py py-func docutils literal notranslate"><span class="pre">option()</span></code></a> decorator is usually passed two positional arguments: the option name and the decorated function argument name.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--string-to-echo&#39;</span><span class="p">,</span> <span class="s1">&#39;string_to_echo&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">echo</span><span class="p">(</span><span class="n">string_to_echo</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">string_to_echo</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span>--help
+<span class="go">Usage: echo [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --string-to-echo TEXT</span>
+<span class="go">  --help                 Show this message and exit.</span>
+</pre></div>
+</div>
+<p>However, if the decorated function argument name is not passed in, then Click will try to infer it. A simple way to name the option so that Click will infer it correctly is by taking the function argument, adding two dashes to the front and converting underscores to dashes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--string-to-echo&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">echo</span><span class="p">(</span><span class="n">string_to_echo</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">string_to_echo</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span>--string-to-echo<span class="w"> </span><span class="s1">&#39;Hi!&#39;</span>
+<span class="go">Hi!</span>
+</pre></div>
+</div>
+<p>More formally, Click will try to infer the decorated function argument name as follows:</p>
+<ol class="arabic simple">
+<li><p>If a positional argument is a valid <a class="reference external" href="https://docs.python.org/3/reference/lexical_analysis.html#identifiers">Python identifier</a> (and thus does not have dashes), it is chosen.</p></li>
+<li><p>If multiple positional arguments are prefixed with <code class="docutils literal notranslate"><span class="pre">--</span></code>, the first one declared is chosen.</p></li>
+<li><p>Otherwise, the first positional argument prefixed with <code class="docutils literal notranslate"><span class="pre">-</span></code> is chosen.</p></li>
+</ol>
+<p>To get the argument name, the chosen positional argument is converted to lower case, a leading <code class="docutils literal notranslate"><span class="pre">-</span></code> or <code class="docutils literal notranslate"><span class="pre">--</span></code> is removed if found, and any remaining <code class="docutils literal notranslate"><span class="pre">-</span></code> characters are replaced with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p>
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">Examples</span><a class="headerlink" href="index.html#id4" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Decorator Arguments</p></th>
+<th class="head"><p>Inferred Argument Name</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;-f&quot;,</span> <span class="pre">&quot;--foo-bar&quot;</span></code></p></td>
+<td><p>foo_bar</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;-x&quot;</span></code></p></td>
+<td><p>x</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;-f&quot;,</span> <span class="pre">&quot;--filename&quot;,</span> <span class="pre">&quot;dest&quot;</span></code></p></td>
+<td><p>dest</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;--CamelCase&quot;</span></code></p></td>
+<td><p>camelcase</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;-f&quot;,</span> <span class="pre">&quot;-fb&quot;</span></code></p></td>
+<td><p>f</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;--f&quot;,</span> <span class="pre">&quot;--foo-bar&quot;</span></code></p></td>
+<td><p>f</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;---f&quot;</span></code></p></td>
+<td><p>_f</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="basic-example">
+<h2><a class="toc-backref" href="index.html#id6" role="doc-backlink">Basic Example</a><a class="headerlink" href="index.html#basic-example" title="Link to this heading">¶</a></h2>
+<p>A simple <a class="reference internal" href="../api/index.html#click.Option" title="click.Option"><code class="xref py py-class docutils literal notranslate"><span class="pre">click.Option</span></code></a> takes one option name. By default, it’s assumed that the decorated function argument is not required and the expected type is <code class="docutils literal notranslate"><span class="pre">str</span></code>. If the decorated function takes a positional argument but the option is not passed with the command, then <code class="docutils literal notranslate"><span class="pre">None</span></code> is passed.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--text&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_this</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>print-this<span class="w"> </span>--text<span class="o">=</span>this
+<span class="go">this</span>
+<span class="gp">$ </span>print-this
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>print-this<span class="w"> </span>--help
+<span class="go">Usage: print-this [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --text TEXT</span>
+<span class="go">  --help       Show this message and exit.</span>
+</pre></div>
+</div>
+</section>
+<section id="setting-a-default">
+<h2><a class="toc-backref" href="index.html#id7" role="doc-backlink">Setting a Default</a><a class="headerlink" href="index.html#setting-a-default" title="Link to this heading">¶</a></h2>
+<p>Instead of setting the <code class="docutils literal notranslate"><span class="pre">type</span></code>, you may set a default and Click will try to infer the type.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--n&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">dots</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s1">&#39;.&#39;</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>dots<span class="w"> </span>--help
+<span class="go">Usage: dots [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --n INTEGER</span>
+<span class="go">  --help       Show this message and exit.</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-value-options">
+<h2><a class="toc-backref" href="index.html#id8" role="doc-backlink">Multi Value Options</a><a class="headerlink" href="index.html#multi-value-options" title="Link to this heading">¶</a></h2>
+<p>To make an option take multiple values, pass in <code class="docutils literal notranslate"><span class="pre">nargs</span></code>. Note you may pass in any positive integer, but not -1. The values are passed to the decorated function as a tuple.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--pos&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">findme</span><span class="p">(</span><span class="n">pos</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">pos</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>findme<span class="w"> </span>--pos<span class="w"> </span><span class="m">2</span>.0<span class="w"> </span><span class="m">3</span>.0
+<span class="go">2.0 / 3.0</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-value-options-as-tuples">
+<span id="tuple-type"></span><h2><a class="toc-backref" href="index.html#id9" role="doc-backlink">Multi Value Options as Tuples</a><a class="headerlink" href="index.html#multi-value-options-as-tuples" title="Link to this heading">¶</a></h2>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionadded">
+<p><span class="versionmodified added">Added in version 4.0.</span></p>
+</div>
+</details><p>By setting <code class="docutils literal notranslate"><span class="pre">nargs</span></code> to a specific number, each item in
+the resulting tuple is of the same type. Alternatively, you might want to use different types for different indexes in
+the tuple. For this you can directly specify a tuple as <code class="docutils literal notranslate"><span class="pre">type</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--item&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">putitem</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">,</span> <span class="nb">id</span> <span class="o">=</span> <span class="n">item</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;name=</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> id=</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And on the command line:</p>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>putitem<span class="w"> </span>--item<span class="w"> </span>peter<span class="w"> </span><span class="m">1338</span>
+<span class="go">name=peter id=1338</span>
+</pre></div>
+</div>
+<p>By using a tuple literal as the <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">nargs</span></code> gets automatically set to the
+length of the tuple and the <a class="reference internal" href="../api/index.html#click.Tuple" title="click.Tuple"><code class="xref py py-class docutils literal notranslate"><span class="pre">click.Tuple</span></code></a> type is automatically
+used. The above example is thus equivalent to this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--item&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Tuple</span><span class="p">([</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">putitem</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">,</span> <span class="nb">id</span> <span class="o">=</span> <span class="n">item</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;name=</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> id=</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="multiple-options">
+<span id="id2"></span><h2><a class="toc-backref" href="index.html#id10" role="doc-backlink">Multiple Options</a><a class="headerlink" href="index.html#multiple-options" title="Link to this heading">¶</a></h2>
+<p>The multiple options format allows options to take an arbitrary number of arguments (which is called variadic). The arguments are passed to the decorated function as a tuple. If set, <code class="docutils literal notranslate"><span class="pre">default</span></code> must be a list or tuple. Setting a string as <code class="docutils literal notranslate"><span class="pre">default</span></code> will be interpreted as a list of characters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--message&#39;</span><span class="p">,</span> <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="n">multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">commit</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">message</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>commit<span class="w"> </span>-m<span class="w"> </span>foo<span class="w"> </span>-m<span class="w"> </span>bar<span class="w"> </span>-m<span class="w"> </span>here
+<span class="gp gp-VirtualEnv">(&#39;foo&#39;, &#39;bar&#39;, &#39;here&#39;)</span>
+<span class="go">foo</span>
+<span class="go">bar</span>
+<span class="go">here</span>
+</pre></div>
+</div>
+</section>
+<section id="counting">
+<h2><a class="toc-backref" href="index.html#id11" role="doc-backlink">Counting</a><a class="headerlink" href="index.html#counting" title="Link to this heading">¶</a></h2>
+<p>To count the occurrence of an option, set <code class="docutils literal notranslate"><span class="pre">count=True</span></code>. If the option is not passed on the command line, then the count is 0. Counting is commonly used for verbosity.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;-v&#39;</span><span class="p">,</span> <span class="s1">&#39;--verbose&#39;</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="n">verbose</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Verbosity: </span><span class="si">{</span><span class="n">verbose</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>log
+<span class="go">Verbosity: 0</span>
+<span class="gp">$ </span>log<span class="w"> </span>-vvv
+<span class="go">Verbosity: 3</span>
+</pre></div>
+</div>
+</section>
+<section id="boolean">
+<span id="option-boolean-flag"></span><h2><a class="toc-backref" href="index.html#id12" role="doc-backlink">Boolean</a><a class="headerlink" href="index.html#boolean" title="Link to this heading">¶</a></h2>
+<p>Boolean options (boolean flags) take the values <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>. The simplest case sets the default value to <code class="docutils literal notranslate"><span class="pre">False</span></code> if the flag is not passed, and <code class="docutils literal notranslate"><span class="pre">True</span></code> if it is.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--shout&#39;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="n">shout</span><span class="p">):</span>
+    <span class="n">rv</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span>
+    <span class="k">if</span> <span class="n">shout</span><span class="p">:</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">rv</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;!!!!111&#39;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">rv</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>info
+<span class="go">linux</span>
+<span class="gp">$ </span>info<span class="w"> </span>--shout
+<span class="go">LINUX!!!!111</span>
+</pre></div>
+</div>
+<p>To implement this more explicitly, declare <code class="docutils literal notranslate"><span class="pre">--{on-option}/--{off-option}</span></code>. Click will automatically set <code class="docutils literal notranslate"><span class="pre">is_flag=True</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--shout/--no-shout&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="n">shout</span><span class="p">):</span>
+    <span class="n">rv</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span>
+    <span class="k">if</span> <span class="n">shout</span><span class="p">:</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">rv</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;!!!!111&#39;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">rv</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>info
+<span class="go">linux</span>
+<span class="gp">$ </span>info<span class="w"> </span>--shout
+<span class="go">LINUX!!!!111</span>
+<span class="gp">$ </span>info<span class="w"> </span>--no-shout
+<span class="go">linux</span>
+</pre></div>
+</div>
+<p>Use cases for this more explicit pattern include:</p>
+<ul class="simple">
+<li><p>The default can be dynamic so the user can explicitly specify the option with either on or off option, or pass in no option to use the dynamic default.</p></li>
+<li><p>Shell scripts sometimes want to be explicit even when it’s the default</p></li>
+<li><p>Shell aliases can set a flag, then an invocation can add a negation of the flag</p></li>
+</ul>
+<p>If a forward slash(<code class="docutils literal notranslate"><span class="pre">/</span></code>) is contained in your option name already, you can split the parameters using <code class="docutils literal notranslate"><span class="pre">;</span></code>. In Windows <code class="docutils literal notranslate"><span class="pre">/</span></code> is commonly used as the prefix character.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;/debug;/no-debug&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">log</span><span class="p">(</span><span class="n">debug</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;debug=</span><span class="si">{</span><span class="n">debug</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<details class="changelog">
+<summary>Changelog</summary><div class="versionchanged">
+<p><span class="versionmodified changed">Changed in version 6.0.</span></p>
+</div>
+</details><p>If you want to define an alias for the second option only, then you will need to use leading whitespace to disambiguate the format string.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--shout/--no-shout&#39;</span><span class="p">,</span> <span class="s1">&#39; /-N&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="n">shout</span><span class="p">):</span>
+    <span class="n">rv</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span>
+    <span class="k">if</span> <span class="n">shout</span><span class="p">:</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">rv</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">+</span> <span class="s1">&#39;!!!!111&#39;</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">rv</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>info<span class="w"> </span>--help
+<span class="go">Usage: info [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --shout / -N, --no-shout</span>
+<span class="go">  --help                    Show this message and exit.</span>
+</pre></div>
+</div>
+</section>
+<section id="flag-value">
+<h2><a class="toc-backref" href="index.html#id13" role="doc-backlink">Flag Value</a><a class="headerlink" href="index.html#flag-value" title="Link to this heading">¶</a></h2>
+<p>To have a flag pass a value to the decorated function set <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>. This automatically sets <code class="docutils literal notranslate"><span class="pre">is_flag=True</span></code>. To mark the flag as default, set <code class="docutils literal notranslate"><span class="pre">default=True</span></code>. Setting flag values can be used to create patterns like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--upper&#39;</span><span class="p">,</span> <span class="s1">&#39;transformation&#39;</span><span class="p">,</span> <span class="n">flag_value</span><span class="o">=</span><span class="s1">&#39;upper&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--lower&#39;</span><span class="p">,</span> <span class="s1">&#39;transformation&#39;</span><span class="p">,</span> <span class="n">flag_value</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="n">transformation</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">,</span> <span class="n">transformation</span><span class="p">)())</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>info<span class="w"> </span>--help
+<span class="go">Usage: info [OPTIONS]</span>
+
+<span class="go">Options:</span>
+<span class="go">  --upper</span>
+<span class="go">  --lower</span>
+<span class="go">  --help   Show this message and exit.</span>
+<span class="gp">$ </span>info<span class="w"> </span>--upper
+<span class="go">LINUX</span>
+<span class="gp">$ </span>info<span class="w"> </span>--lower
+<span class="go">linux</span>
+<span class="gp">$ </span>info
+<span class="go">LINUX</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">default</span></code> value is given to the decorated function as-is. So if you set <code class="docutils literal notranslate"><span class="pre">default=None</span></code>, the value passed to the function is the <code class="docutils literal notranslate"><span class="pre">None</span></code> Python value. Same for any other type.</p>
+<p>But there is a special case for flags. If a flag has a <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>, then setting <code class="docutils literal notranslate"><span class="pre">default=True</span></code> is interpreted as <em>the flag should be activated by default</em>. So instead of the decorated function receiving the <code class="docutils literal notranslate"><span class="pre">True</span></code> Python value, it will receive the <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>.</p>
+<p>Which means, in example above, this option:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--upper&#39;</span><span class="p">,</span> <span class="s1">&#39;transformation&#39;</span><span class="p">,</span> <span class="n">flag_value</span><span class="o">=</span><span class="s1">&#39;upper&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>is equivalent to:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--upper&#39;</span><span class="p">,</span> <span class="s1">&#39;transformation&#39;</span><span class="p">,</span> <span class="n">flag_value</span><span class="o">=</span><span class="s1">&#39;upper&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;upper&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Because the two are equivalent, it is recommended to always set <code class="docutils literal notranslate"><span class="pre">default</span></code> to the actual value you want to pass and avoid using the special <code class="docutils literal notranslate"><span class="pre">True</span></code> case. This makes the code more explicit and predictable.</p>
+</div>
+</section>
+<section id="values-from-environment-variables">
+<h2><a class="toc-backref" href="index.html#id14" role="doc-backlink">Values from Environment Variables</a><a class="headerlink" href="index.html#values-from-environment-variables" title="Link to this heading">¶</a></h2>
+<p>To pass in a value from a specific environment variable use <code class="docutils literal notranslate"><span class="pre">envvar</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--username&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="s1">&#39;USERNAME&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
+   <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">USERNAME</span><span class="o">=</span>john
+<span class="gp">$ </span>greet
+<span class="go">Hello john!</span>
+</pre></div>
+</div>
+<p>If a list is passed to <code class="docutils literal notranslate"><span class="pre">envvar</span></code>, the first environment variable found is picked.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;--username&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ALT_USERNAME&#39;</span><span class="p">,</span> <span class="s1">&#39;USERNAME&#39;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="n">username</span><span class="p">):</span>
+   <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">ALT_USERNAME</span><span class="o">=</span>Bill
+<span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">USERNAME</span><span class="o">=</span>john
+<span class="gp">$ </span>greet
+<span class="go">Hello Bill!</span>
+</pre></div>
+</div>
+<p>Variable names are:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/python/cpython/blob/aa9eb5f757ceff461e6e996f12c89e5d9b583b01/Lib/os.py#L777-L789">Case-insensitive on Windows but not on other platforms</a>.</p></li>
+<li><p>Not stripped of whitespace and should match the exact name provided to the <code class="docutils literal notranslate"><span class="pre">envvar</span></code> argument.</p></li>
+</ul>
+<p>For flag options, there are two concepts to consider: the activation of the flag driven by the environment variable, and the value of the flag if it is activated.</p>
+<p>The values read from environment variables are always strings and will require extra processing. We need to transform these strings into boolean values that will determine if the flag is activated or not.</p>
+<p>Here are the rules used to parse environment variable values for flag options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, <code class="docutils literal notranslate"><span class="pre">on</span></code>, <code class="docutils literal notranslate"><span class="pre">t</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code> are interpreted as activating the flag</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">no</span></code>, <code class="docutils literal notranslate"><span class="pre">off</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>, <code class="docutils literal notranslate"><span class="pre">n</span></code> are interpreted as deactivating the flag</p></li>
+<li><p>The presence of the environment variable without value is interpreted as deactivating the flag</p></li>
+<li><p>Empty strings are interpreted as deactivating the flag</p></li>
+<li><p>Values are case-insensitive, so the <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">TRUE</span></code>, <code class="docutils literal notranslate"><span class="pre">tRuE</span></code> strings are all interpreted as activating the flag</p></li>
+<li><p>Values are stripped of leading and trailing whitespace before being interpreted, so the <code class="docutils literal notranslate"><span class="pre">&quot;</span> <span class="pre">True</span> <span class="pre">&quot;</span></code> string is transformed to <code class="docutils literal notranslate"><span class="pre">&quot;true&quot;</span></code> and thus activates the flag</p></li>
+<li><p>If the flag option has a <code class="docutils literal notranslate"><span class="pre">flag_value</span></code> argument, passing that value in the environment variable will activate the flag, in addition to all the cases described above</p></li>
+<li><p>Any other value is interpreted as deactivating the flag</p></li>
+</ul>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>For boolean flags with a pair of values, the only recognized environment variable is the one provided to the <code class="docutils literal notranslate"><span class="pre">envvar</span></code> argument.</p>
+<p>So an option defined as <code class="docutils literal notranslate"><span class="pre">--flag\--no-flag</span></code>, with a <code class="docutils literal notranslate"><span class="pre">envvar=&quot;FLAG&quot;</span></code> parameter, there is no magical <code class="docutils literal notranslate"><span class="pre">NO_FLAG=&lt;anything&gt;</span></code> variable that is recognized. Only the <code class="docutils literal notranslate"><span class="pre">FLAG=&lt;anything&gt;</span></code> environment variable is recognized.</p>
+</div>
+<p>If the flag is activated, its value is set to <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>. Otherwise, the value defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</section>
+<section id="multiple-options-from-environment-values">
+<h2><a class="toc-backref" href="index.html#id15" role="doc-backlink">Multiple Options from Environment Values</a><a class="headerlink" href="index.html#multiple-options-from-environment-values" title="Link to this heading">¶</a></h2>
+<p>As options can accept multiple values, pulling in such values from
+environment variables (which are strings) is a bit more complex. Click handles this by deferring customization of the behavior to the <code class="docutils literal notranslate"><span class="pre">type</span></code>. For both <code class="docutils literal notranslate"><span class="pre">multiple</span></code> and <code class="docutils literal notranslate"><span class="pre">nargs</span></code> with values other than
+<code class="docutils literal notranslate"><span class="pre">1</span></code>, Click will invoke the <a class="reference internal" href="../api/index.html#click.ParamType.split_envvar_value" title="click.ParamType.split_envvar_value"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ParamType.split_envvar_value()</span></code></a> method to
+perform the splitting.</p>
+<p>The default implementation for all types is to split on whitespace. The
+exceptions to this rule are the <a class="reference internal" href="../api/index.html#click.File" title="click.File"><code class="xref py py-class docutils literal notranslate"><span class="pre">File</span></code></a> and <a class="reference internal" href="../api/index.html#click.Path" title="click.Path"><code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code></a> types
+which both split according to the operating system’s path splitting rules.
+On Unix systems like Linux and OS X, the splitting happens on
+every colon (<code class="docutils literal notranslate"><span class="pre">:</span></code>), and for Windows, splitting on every semicolon (<code class="docutils literal notranslate"><span class="pre">;</span></code>).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;paths&#39;</span><span class="p">,</span> <span class="s1">&#39;--path&#39;</span><span class="p">,</span> <span class="n">envvar</span><span class="o">=</span><span class="s1">&#39;PATHS&#39;</span><span class="p">,</span> <span class="n">multiple</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="nb">type</span><span class="o">=</span><span class="n">click</span><span class="o">.</span><span class="n">Path</span><span class="p">())</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">perform</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">perform</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span><span class="nb">export</span><span class="w"> </span><span class="nv">PATHS</span><span class="o">=</span>./foo/bar:./test
+<span class="gp">$ </span>perform
+<span class="go">./foo/bar</span>
+<span class="go">./test</span>
+</pre></div>
+</div>
+</section>
+<section id="other-prefix-characters">
+<h2><a class="toc-backref" href="index.html#id16" role="doc-backlink">Other Prefix Characters</a><a class="headerlink" href="index.html#other-prefix-characters" title="Link to this heading">¶</a></h2>
+<p>Click can deal with prefix characters besides <code class="docutils literal notranslate"><span class="pre">-</span></code> for options, including <code class="docutils literal notranslate"><span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">+</span></code>, as well as others. Note that alternative prefix characters are generally used very sparingly if at all within POSIX.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s1">&#39;+w/-w&#39;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">chmod</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;writable=</span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>chmod<span class="w"> </span>+w
+<span class="go">writable=True</span>
+<span class="gp">$ </span>chmod<span class="w"> </span>-w
+<span class="go">writable=False</span>
+</pre></div>
+</div>
+<p>There are special considerations for using <code class="docutils literal notranslate"><span class="pre">/</span></code> as prefix character. See <a class="reference internal" href="index.html#option-boolean-flag"><span class="std std-ref">Boolean</span></a> for more.</p>
+</section>
+<section id="optional-value">
+<span id="id3"></span><h2><a class="toc-backref" href="index.html#id17" role="doc-backlink">Optional Value</a><a class="headerlink" href="index.html#optional-value" title="Link to this heading">¶</a></h2>
+<p>Providing the value to an option can be made optional, in which case
+providing only the option’s flag without a value will either show a
+prompt or use its <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>.</p>
+<p>Setting <code class="docutils literal notranslate"><span class="pre">is_flag=False,</span> <span class="pre">flag_value=value</span></code> tells Click that the option
+can still be passed a value, but if only the flag is given, the
+value will be <code class="docutils literal notranslate"><span class="pre">flag_value</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@click</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--name&quot;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">flag_value</span><span class="o">=</span><span class="s2">&quot;Flag&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;Default&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hello</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">click</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello, </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-shell-session notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>hello
+<span class="go">Hello, Default!</span>
+<span class="gp">$ </span>hello<span class="w"> </span>--name<span class="w"> </span>Value
+<span class="go">Hello, Value!</span>
+<span class="gp">$ </span>hello<span class="w"> </span>--name
+<span class="go">Hello, Flag!</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">Options</a><ul>
+<li><a class="reference internal" href="index.html#option-decorator">Option Decorator</a></li>
+<li><a class="reference internal" href="index.html#basic-example">Basic Example</a></li>
+<li><a class="reference internal" href="index.html#setting-a-default">Setting a Default</a></li>
+<li><a class="reference internal" href="index.html#multi-value-options">Multi Value Options</a></li>
+<li><a class="reference internal" href="index.html#multi-value-options-as-tuples">Multi Value Options as Tuples</a></li>
+<li><a class="reference internal" href="index.html#multiple-options">Multiple Options</a></li>
+<li><a class="reference internal" href="index.html#counting">Counting</a></li>
+<li><a class="reference internal" href="index.html#boolean">Boolean</a></li>
+<li><a class="reference internal" href="index.html#flag-value">Flag Value</a></li>
+<li><a class="reference internal" href="index.html#values-from-environment-variables">Values from Environment Variables</a></li>
+<li><a class="reference internal" href="index.html#multiple-options-from-environment-values">Multiple Options from Environment Values</a></li>
+<li><a class="reference internal" href="index.html#other-prefix-characters">Other Prefix Characters</a></li>
+<li><a class="reference internal" href="index.html#optional-value">Optional Value</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../parameter-types/index.html" title="previous chapter">Parameter Types</a>
+          <li>Next: <a href="../option-decorators/index.html" title="next chapter">Options Shortcut Decorators</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>

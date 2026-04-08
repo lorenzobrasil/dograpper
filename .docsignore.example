@@ -1,0 +1,15 @@
+# Imagens
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
+# Outros binários
+*.pdf
+*.zip
+*.tar.gz
+
+# Páginas indesejadas
+**/404.html
+**/changelog/**

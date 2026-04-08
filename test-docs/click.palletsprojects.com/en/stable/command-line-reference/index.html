@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>General Command Line Topics &#8212; Click Documentation (8.3.x)</title>
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/click.css?v=66889b38" />
+    <link rel="stylesheet" type="text/css" href="https://click.palletsprojects.com/en/stable/_static/tabs.css?v=a5c4661c" />
+    <script src="https://click.palletsprojects.com/en/stable/_static/documentation_options.js?v=228c141f"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="https://click.palletsprojects.com/en/stable/_static/tabs.js?v=3030b3cb"></script>
+    <link rel="canonical" href="index.html" />
+    <link rel="icon" href="https://click.palletsprojects.com/en/stable/_static/click-icon.svg"/>
+    <link rel="index" title="Index" href="../genindex/index.html" />
+    <link rel="search" title="Search" href="../search/index.html" />
+    <link rel="next" title="Unicode Support" href="../unicode-support/index.html" />
+    <link rel="prev" title="Exception Handling and Exit Codes" href="../exceptions/index.html" /> 
+  <script async type="text/javascript" src="https://click.palletsprojects.com/_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="pallets-click" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/command-line-reference/" /><meta name="readthedocs-http-status" content="200" /></head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/index.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../unicode-support/index.html" title="Unicode Support"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../exceptions/index.html" title="Exception Handling and Exit Codes"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Click Documentation (8.3.x)</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="index.html">General Command Line Topics</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="general-command-line-topics">
+<h1>General Command Line Topics<a class="headerlink" href="index.html#general-command-line-topics" title="Link to this heading">¶</a></h1>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="index.html#exit-codes" id="id2">Exit Codes</a></p></li>
+</ul>
+</nav>
+<section id="exit-codes">
+<span id="id1"></span><h2><a class="toc-backref" href="index.html#id2" role="doc-backlink">Exit Codes</a><a class="headerlink" href="index.html#exit-codes" title="Link to this heading">¶</a></h2>
+<p>When a command is executed from the command line, then an exit code is return. The exit code, also called exit status or exit status code, is a positive integer that tells you whether the command executed with or without errors.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Exit Code</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>Success — the command completed without errors.</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 0</p></td>
+<td><p>Executed with errors</p></td>
+</tr>
+</tbody>
+</table>
+<p>Exit codes greater than zero mean are specific to the Operating System, Shell, and/or command.</p>
+<p>To access the exit code, execute the command, then do the following depending:</p>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-UG93ZXJzaGVsbA==" aria-selected="true" class="sphinx-tabs-tab group-tab" id="tab-0-UG93ZXJzaGVsbA==" name="UG93ZXJzaGVsbA==" role="tab" tabindex="0">Powershell</button><button aria-controls="panel-0-QmFzaA==" aria-selected="false" class="sphinx-tabs-tab group-tab" id="tab-0-QmFzaA==" name="QmFzaA==" role="tab" tabindex="-1">Bash</button><button aria-controls="panel-0-Q29tbWFuZCBQcm9tcHQ=" aria-selected="false" class="sphinx-tabs-tab group-tab" id="tab-0-Q29tbWFuZCBQcm9tcHQ=" name="Q29tbWFuZCBQcm9tcHQ=" role="tab" tabindex="-1">Command Prompt</button></div><div aria-labelledby="tab-0-UG93ZXJzaGVsbA==" class="sphinx-tabs-panel group-tab" id="panel-0-UG93ZXJzaGVsbA==" name="UG93ZXJzaGVsbA==" role="tabpanel" tabindex="0"><div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="p">&gt;</span> <span class="nb">echo </span><span class="nv">$LASTEXITCODE</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-0-QmFzaA==" class="sphinx-tabs-panel group-tab" hidden="true" id="panel-0-QmFzaA==" name="QmFzaA==" role="tabpanel" tabindex="0"><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-0-Q29tbWFuZCBQcm9tcHQ=" class="sphinx-tabs-panel group-tab" hidden="true" id="panel-0-Q29tbWFuZCBQcm9tcHQ=" name="Q29tbWFuZCBQcm9tcHQ=" role="tabpanel" tabindex="0"><div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&gt; echo %ERRORLEVEL%
+</pre></div>
+</div>
+</div></div>
+<p>For Click specific behavior on exit codes, see <a class="reference internal" href="../exceptions/index.html#exception-handling-exit-codes"><span class="std std-ref">Exception Handling and Exit Codes</span></a>.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+  <span id="sidebar-top"></span>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  
+    
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="https://click.palletsprojects.com/en/stable/_static/click-logo.svg" alt="Logo of Click"/>
+            </a></p>
+  
+
+  <h3>Contents</h3>
+  <ul>
+<li><a class="reference internal" href="index.html#">General Command Line Topics</a><ul>
+<li><a class="reference internal" href="index.html#exit-codes">Exit Codes</a></li>
+</ul>
+</li>
+</ul>
+<h3>Navigation</h3>
+<ul>
+  <li><a href="../index.html">Overview</a>
+    <ul>
+          <li>Previous: <a href="../exceptions/index.html" title="previous chapter">Exception Handling and Exit Codes</a>
+          <li>Next: <a href="../unicode-support/index.html" title="next chapter">Unicode Support</a>
+    </ul>
+  </li>
+</ul>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search/index.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><div id="ethical-ad-placement"></div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2014 Pallets.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+  </body>
+</html>
