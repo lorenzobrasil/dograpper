@@ -1,6 +1,7 @@
 """Word counting utilities."""
 
 import os
+from .html_stripper import strip_html
 
 def count_words(text: str) -> int:
     """Contagem simples de palavras."""
@@ -13,6 +14,8 @@ def count_words_file(filepath: str) -> int:
     try:
         with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
+        if filepath.lower().endswith('.html') or filepath.lower().endswith('.htm'):
+            content = strip_html(content)
         return count_words(content)
     except Exception:
         # Fallback for unexpected I/O errors

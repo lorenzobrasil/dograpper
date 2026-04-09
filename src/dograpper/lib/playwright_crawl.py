@@ -16,6 +16,7 @@ class CrawlResult:
     output_dir: str
     files_downloaded: List[str]
     errors: List[str]
+    files_skipped: int = 0
 
 def run_playwright_crawl(
     url: str,
@@ -39,6 +40,7 @@ def run_playwright_crawl(
     to_visit = [(url, 0)]
     files_downloaded = []
     errors = []
+    files_skipped = 0
     
     extensions = [ext.strip().lower() for ext in include_extensions.split(',') if ext.strip()]
     
@@ -61,7 +63,24 @@ def run_playwright_crawl(
             if current_url != url and delay > 0:
                 time.sleep(delay / 1000.0)
                 
-            logger.info(f"Crawling {current_url}")
+            # Check manifest caching
+            skip_download = False
+            if manifest_data:
+                # Find entry by URL
+                for rel_key, entry in manifest_data.files.items():
+                    if entry.url == current_url:
+                        expected_full_path = os.path.join(output_dir, rel_key)
+                        if os.path.exists(expected_full_path):
+                            logger.debug(f"Skipping (cached): {current_url}")
+                            files_skipped += 1
+                            files_downloaded.append(expected_full_path)
+                            skip_download = True
+                        break
+                        
+            if skip_download:
+                continue
+                
+            logger.info(f"Downloading: {current_url}")
             
             try:
                 page.goto(current_url, wait_until="networkidle")
@@ -112,5 +131,6 @@ def run_playwright_crawl(
         success=True,
         output_dir=output_dir,
         files_downloaded=files_downloaded,
-        errors=errors
+        errors=errors,
+        files_skipped=files_skipped
     )

@@ -15,13 +15,15 @@ class WgetResult:
     output_dir: str
     files_downloaded: List[str]
     errors: List[str]
+    files_skipped: int = 0
 
 def run_wget_mirror(
     url: str,
     output_dir: str,
     depth: int = 0,
     delay: int = 0,
-    include_extensions: str = "html,md,txt"
+    include_extensions: str = "html,md,txt",
+    incremental: bool = False
 ) -> WgetResult:
     """Run wget --mirror with the specified options."""
     
@@ -32,15 +34,27 @@ def run_wget_mirror(
         raise RuntimeError("wget is required. Install with: brew install wget (macOS) or apt install wget (Linux)")
 
     # Build command
-    cmd = [
-        "wget",
-        "--mirror",
-        "--convert-links",
-        "--adjust-extension",
-        "--page-requisites",
-        "--no-parent",
-        f"--directory-prefix={output_dir}"
-    ]
+    cmd = ["wget"]
+    
+    if incremental:
+        cmd.extend([
+            "--timestamping",
+            "--recursive",
+            "--convert-links",
+            "--adjust-extension",
+            "--page-requisites",
+            "--no-parent",
+            f"--directory-prefix={output_dir}"
+        ])
+    else:
+        cmd.extend([
+            "--mirror",
+            "--convert-links",
+            "--adjust-extension",
+            "--page-requisites",
+            "--no-parent",
+            f"--directory-prefix={output_dir}"
+        ])
 
     if depth > 0:
         cmd.append(f"--level={depth}")

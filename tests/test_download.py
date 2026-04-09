@@ -6,8 +6,45 @@ import click
 
 from dograpper.lib.wget_mirror import run_wget_mirror
 from dograpper.lib.spa_detector import is_spa
-from dograpper.lib.manifest import Manifest, ManifestEntry, load_manifest, save_manifest
+from dograpper.lib.manifest import Manifest, ManifestEntry, load_manifest, save_manifest, merge_manifests
 from dograpper.lib.config_loader import load_config
+
+def test_merge_manifests_basic():
+    old = Manifest("http://localhost", "2020", {
+        "A.md": ManifestEntry("a/b", 100, etag="e1"),
+        "B.md": ManifestEntry("b/b", 200, etag="e2")
+    })
+    new = Manifest("http://localhost", "2021", {
+        "B.md": ManifestEntry("b/b", 999), # changed size
+        "C.md": ManifestEntry("c/c", 300)
+    })
+    
+    merged = merge_manifests(old, new)
+    
+    assert "A.md" not in merged.files
+    assert "B.md" in merged.files
+    assert "C.md" in merged.files
+    
+    assert merged.files["B.md"].etag is None # Size changed, etag lost
+    assert merged.files["B.md"].size_bytes == 999
+    assert merged.last_run == "2021"
+
+def test_merge_manifests_preserves_etag():
+    old = Manifest("http://localhost", "2020", {
+        "A.md": ManifestEntry("a/b", 100, etag="e1", last_modified="lm")
+    })
+    new = Manifest("http://localhost", "2021", {
+        "A.md": ManifestEntry("a/b", 100) # same size
+    })
+    
+    merged = merge_manifests(old, new)
+    assert merged.files["A.md"].etag == "e1"
+    assert merged.files["A.md"].last_modified == "lm"
+
+def test_merge_manifests_none_old():
+    new = Manifest("http://localhost", "2021", {"A.md": ManifestEntry("a/b", 100)})
+    merged = merge_manifests(None, new)
+    assert "A.md" in merged.files
 
 def test_wget_mirror_command_build():
     with patch('subprocess.run') as mock_run:
@@ -21,12 +58,37 @@ def test_wget_mirror_command_build():
         args = mock_run.call_args[0][0]
         assert "wget" in args
         assert "--mirror" in args
+        assert "--timestamping" not in args
         assert "--convert-links" in args
         assert "--level=2" in args
         assert "--wait=1.5" in args
         assert "--accept=html,md" in args
         assert "--directory-prefix=./out" in args
         assert "http://example.com" in args
+
+def test_wget_incremental_flag():
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+        
+        run_wget_mirror('http://example.com', './out', incremental=True)
+        args = mock_run.call_args[0][0]
+        
+        assert "wget" in args
+        assert "--timestamping" in args
+        assert "--mirror" not in args
+        assert "--recursive" in args
+        assert "--page-requisites" in args
+        assert "--convert-links" in args
+
+def test_wget_non_incremental():
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+        
+        run_wget_mirror('http://example.com', './out', incremental=False)
+        args = mock_run.call_args[0][0]
+        
+        assert "--mirror" in args
+        assert "--timestamping" not in args
 
 def test_spa_detector_empty_shells():
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -104,3 +166,171 @@ def test_config_loader_precedence():
         assert merged["depth"] == 2 # CLI explicit beat JSON
         assert merged["delay"] == 200 # JSON beat default
         assert merged["output"] == "./out" # default preserved if not in JSON
+
+def test_playwright_skips_cached():
+    import sys
+    from unittest.mock import MagicMock
+    
+    mock_playwright = MagicMock()
+    mock_sync_api = MagicMock()
+    mock_sync = mock_sync_api.sync_playwright
+    mock_p = mock_sync.return_value.__enter__.return_value
+    mock_page = mock_p.chromium.launch.return_value.new_context.return_value.new_page.return_value
+    
+    sys.modules['playwright'] = mock_playwright
+    sys.modules['playwright.sync_api'] = mock_sync_api
+    
+    try:
+        # Manifest mapping http://target.com to index.html
+        m = Manifest("http://target.com", "", {
+            "index.html": ManifestEntry("http://target.com", 100)
+        })
+        
+        with tempfile.TemporaryDirectory() as d:
+            # File exists on disk
+            with open(os.path.join(d, "index.html"), "w") as f:
+                f.write("content")
+                
+            from dograpper.lib.playwright_crawl import run_playwright_crawl
+            res = run_playwright_crawl("http://target.com", d, manifest_data=m)
+            
+            # Assert goto was not called
+            mock_page.goto.assert_not_called()
+            assert res.files_skipped == 1
+    finally:
+        del sys.modules['playwright']
+        del sys.modules['playwright.sync_api']
+
+def test_playwright_redownloads_missing():
+    import sys
+    from unittest.mock import MagicMock
+    
+    mock_playwright = MagicMock()
+    mock_sync_api = MagicMock()
+    mock_sync = mock_sync_api.sync_playwright
+    mock_p = mock_sync.return_value.__enter__.return_value
+    mock_page = mock_p.chromium.launch.return_value.new_context.return_value.new_page.return_value
+    mock_page.content.return_value = "<html><body>content</body></html>"
+    mock_page.evaluate.return_value = []
+    
+    sys.modules['playwright'] = mock_playwright
+    sys.modules['playwright.sync_api'] = mock_sync_api
+    
+    try:
+        m = Manifest("http://target.com", "", {
+            "index.html": ManifestEntry("http://target.com", 100)
+        })
+        
+        with tempfile.TemporaryDirectory() as d:
+            # DO NOT create index.html
+            from dograpper.lib.playwright_crawl import run_playwright_crawl
+            res = run_playwright_crawl("http://target.com", d, manifest_data=m)
+            
+            # Assert goto WAS called because file is missing
+            mock_page.goto.assert_called_with("http://target.com", wait_until="networkidle")
+            assert res.files_skipped == 0
+    finally:
+        del sys.modules['playwright']
+        del sys.modules['playwright.sync_api']
+
+from click.testing import CliRunner
+from dograpper.commands.download import download
+
+def test_download_wget_success():
+    runner = CliRunner()
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+        
+        with tempfile.TemporaryDirectory() as d:
+            from dograpper.lib.wget_mirror import WgetResult
+            with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
+                mock_wget.return_value = WgetResult(True, d, [os.path.join(d, "index.html")], [], 0)
+                
+                # Mock is_spa
+                with patch('dograpper.commands.download.is_spa') as mock_is_spa:
+                    mock_is_spa.return_value = False
+                    
+                    with open(os.path.join(d, "index.html"), "w") as f:
+                        f.write("content")
+                        
+                    res = runner.invoke(download, ['http://example.com', '-o', d])
+                    assert res.exit_code == 0
+                    assert "Download complete" in res.output
+                    assert "Files downloaded: 1" in res.output
+                    assert mock_wget.called
+
+def test_download_spa_fallback(caplog):
+    import logging
+    caplog.set_level(logging.INFO)
+    runner = CliRunner()
+    
+    with tempfile.TemporaryDirectory() as d:
+        from dograpper.lib.wget_mirror import WgetResult
+        from dograpper.lib.playwright_crawl import CrawlResult
+        with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
+            mock_wget.return_value = WgetResult(True, d, [], [], 0)
+            
+            with patch('dograpper.commands.download.is_spa') as mock_is_spa:
+                mock_is_spa.return_value = True
+                
+                with patch('dograpper.commands.download.run_playwright_crawl') as mock_pw:
+                    mock_pw.return_value = CrawlResult(True, d, [os.path.join(d, "index.html")], [], 0)
+                    
+                    with open(os.path.join(d, "index.html"), "w") as f:
+                        f.write("content fallback")
+                        
+                    res = runner.invoke(download, ['http://example.com', '-o', d])
+                    assert res.exit_code == 0
+                    assert "SPA detected, falling back to playwright" in caplog.text
+                    mock_pw.assert_called()
+
+def test_download_headless_skips_wget():
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as d:
+        from dograpper.lib.playwright_crawl import CrawlResult
+        
+        with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
+            with patch('dograpper.commands.download.run_playwright_crawl') as mock_pw:
+                mock_pw.return_value = CrawlResult(True, d, [os.path.join(d, "index.html")], [], 0)
+                
+                with open(os.path.join(d, "index.html"), "w") as f:
+                    f.write("content")
+                    
+                res = runner.invoke(download, ['http://example.com', '-o', d, '--headless'])
+                assert res.exit_code == 0
+                mock_wget.assert_not_called()
+                mock_pw.assert_called()
+
+def test_download_incremental_second_run():
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as d:
+        manifest_path = os.path.join(d, ".dograpper-manifest.json")
+        
+        from dograpper.lib.wget_mirror import WgetResult
+        with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
+            mock_wget.return_value = WgetResult(True, d, [os.path.join(d, "index.html")], [], 0)
+            with patch('dograpper.commands.download.is_spa') as mock_is_spa:
+                mock_is_spa.return_value = False
+                
+                with open(os.path.join(d, "index.html"), "w") as f: f.write("1")
+                
+                # First run
+                runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
+                args1 = mock_wget.call_args[1]
+                assert args1.get('incremental', False) is False
+                
+                # Second run
+                runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
+                args2 = mock_wget.call_args[1]
+                assert args2.get('incremental', False) is True
+
+def test_download_wget_not_installed():
+    runner = CliRunner()
+    from dograpper.lib.wget_mirror import run_wget_mirror
+    with patch('subprocess.run') as mock_run:
+        mock_run.side_effect = FileNotFoundError()
+        
+        with tempfile.TemporaryDirectory() as d:
+            res = runner.invoke(download, ['http://example.com', '-o', d])
+            assert res.exit_code != 0
+            assert "wget is required" in res.output

@@ -1,5 +1,6 @@
 import os
 import tempfile
+import xml.etree.ElementTree as ET
 from click.testing import CliRunner
 
 from dograpper.utils.word_counter import count_words, count_words_file
@@ -23,6 +24,39 @@ def test_count_words_file():
         assert count_words_file(filepath) == 4
     finally:
         os.remove(filepath)
+
+def test_count_words_file_html():
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+        f.write("<p>this is <b>four</b> words</p><script>console.log('not me');</script>")
+        filepath = f.name
+    try:
+        assert count_words_file(filepath) == 4
+    finally:
+        os.remove(filepath)
+
+def test_count_words_file_md():
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+        f.write("# this is four words\n<p>one two</p>")
+        filepath = f.name
+    try:
+        # Markdown keeps everything
+        assert count_words_file(filepath) == 7
+    finally:
+        os.remove(filepath)
+
+# --- HTML Stripper ---
+
+from dograpper.utils.html_stripper import strip_html
+
+def test_strip_html_basic():
+    assert strip_html("<p>Hello <b>world</b></p>") == "Hello world"
+
+def test_strip_html_script_style():
+    test_input = "<script>var x=1;</script><style>.a{}</style><p>Text</p>"
+    assert strip_html(test_input) == "Text"
+
+def test_strip_html_entities():
+    assert strip_html("&amp; &lt;b&gt;") == "& <b>"
 
 # --- Ignore Parser ---
 
@@ -127,6 +161,73 @@ def test_write_chunks_without_index():
             assert "# Chunk" not in content
             assert "<!-- SOURCE: a.md -->" in content
 
+def test_write_chunks_strips_html():
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = os.path.join(d, 'out')
+        files = create_mock_files(d, [("a.html", 5)])
+        
+        # Override file content to be real HTML
+        with open(os.path.join(d, "a.html"), 'w') as f:
+            f.write("<p>word anword</p>")
+            
+        chunks = chunk_by_size(files, d, 10)
+        write_chunks(chunks, d, out_dir, "ck_", "md", False, 1)
+        
+        with open(os.path.join(out_dir, "ck_01.md"), 'r') as f:
+            content = f.read()
+            assert "<!-- SOURCE: a.html -->" in content
+            assert "word anword" in content
+            assert "<p>" not in content
+
+def test_write_chunks_xml_format():
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = os.path.join(d, 'out')
+        files = create_mock_files(d, [("a.md", 5), ("b.md", 5)])
+        chunks = chunk_by_size(files, d, 20)
+        
+        write_chunks(chunks, d, out_dir, "ck_", "xml", True, 1)
+        
+        out_file = os.path.join(out_dir, "ck_01.xml")
+        assert os.path.exists(out_file)
+        
+        tree = ET.parse(out_file)
+        root = tree.getroot()
+        assert root.tag == "chunk"
+        assert root.attrib["index"] == "1"
+        
+        meta = root.find("meta")
+        assert meta is not None
+        assert meta.find("file_count").text == "2"
+        
+        sources = root.find("sources")
+        assert len(sources.findall("source")) == 2
+
+def test_write_chunks_xml_no_index():
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = os.path.join(d, 'out')
+        files = create_mock_files(d, [("a.md", 5)])
+        chunks = chunk_by_size(files, d, 10)
+        
+        write_chunks(chunks, d, out_dir, "ck_", "xml", False, 1)
+        tree = ET.parse(os.path.join(out_dir, "ck_01.xml"))
+        root = tree.getroot()
+        assert root.find("meta") is None
+
+def test_write_chunks_xml_cdata_escape():
+    with tempfile.TemporaryDirectory() as d:
+        out_dir = os.path.join(d, 'out')
+        files = create_mock_files(d, [("a.md", 5)])
+        
+        with open(files[0], 'w') as f:
+            f.write("content ]]> here")
+            
+        chunks = chunk_by_size(files, d, 20)
+        write_chunks(chunks, d, out_dir, "ck_", "xml", False, 1)
+        
+        with open(os.path.join(out_dir, "ck_01.xml"), 'r') as f:
+            content = f.read()
+            assert "]]]]><![CDATA[>" in content
+
 # --- CLI Integration ---
 
 def test_pack_empty_dir():
@@ -205,3 +306,24 @@ def test_pack_integration_full():
             assert "# Chunk 01" in content
             assert "module/one.md" in content
             assert "module/two.md" in content
+
+def test_config_invalid_json():
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as d:
+        config_path = os.path.join(d, '.dograpper.json')
+        with open(config_path, 'w') as f:
+            f.write('{"pack": {"format": "xml"') # Missing closing brace
+            
+        # Point the config file logic to the temp directory. 
+        # But wait, pack CLI defaults to checking ~/.dograpper.json and ./.dograpper.json if no config flag is implemented.
+        # Actually in load_config it is a direct method, we can just test `load_config` directly.
+        from dograpper.lib.config_loader import load_config
+        import click
+        from pytest import raises
+        
+        ctx = click.Context(click.Command('pack'))
+        with raises(click.ClickException) as exc:
+            load_config(config_path, "pack", {}, ctx)
+            
+        assert "line" in str(exc.value)
+        assert "column" in str(exc.value)

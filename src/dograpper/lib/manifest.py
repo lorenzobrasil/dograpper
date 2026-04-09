@@ -91,3 +91,24 @@ def build_manifest(base_url: str, output_dir: str) -> Manifest:
         last_run=last_run,
         files=files
     )
+
+def merge_manifests(old: Optional[Manifest], new: Manifest) -> Manifest:
+    """Merge newly generated manifest with the previous one, preserving etags and discarding absent files."""
+    if not old:
+        return new
+        
+    merged_files = {}
+    for key, new_entry in new.files.items():
+        if key in old.files:
+            old_entry = old.files[key]
+            # Keep old etag if size didn't change
+            if old_entry.size_bytes == new_entry.size_bytes:
+                new_entry.etag = old_entry.etag
+                new_entry.last_modified = old_entry.last_modified
+        merged_files[key] = new_entry
+        
+    return Manifest(
+        base_url=new.base_url,
+        last_run=new.last_run,
+        files=merged_files
+    )

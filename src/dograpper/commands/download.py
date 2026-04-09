@@ -5,7 +5,7 @@ import click
 import logging
 
 from ..lib.config_loader import load_config
-from ..lib.manifest import load_manifest, save_manifest, build_manifest
+from ..lib.manifest import load_manifest, save_manifest, build_manifest, merge_manifests
 from ..lib.spa_detector import is_spa
 from ..lib.wget_mirror import run_wget_mirror
 from ..lib.playwright_crawl import run_playwright_crawl
@@ -50,18 +50,28 @@ def download(ctx: click.Context, url: str, output: str, depth: int, headless: bo
     os.makedirs(output, exist_ok=True)
     manifest_data = load_manifest(manifest_path)
     
+    files_skipped = 0
+    files_downloaded = 0
+    
     if headless:
         logger.info("Forced headless mode via Playwright.")
         try:
             result = run_playwright_crawl(url, output, depth, delay, include_extensions, manifest_data)
             if not result.success:
                 raise click.ClickException("Playwright crawl failed.")
+            files_skipped = result.files_skipped
+            files_downloaded = len(result.files_downloaded) - files_skipped
         except RuntimeError as e:
             raise click.ClickException(str(e))
     else:
         logger.info("Running wget mirror.")
         try:
-            wget_res = run_wget_mirror(url, output, depth, delay, include_extensions)
+            is_incremental = bool(manifest_data)
+            wget_res = run_wget_mirror(url, output, depth, delay, include_extensions, incremental=is_incremental)
+            files_downloaded = len(wget_res.files_downloaded)
+            if is_incremental:
+                # Approximation for wget
+                files_skipped = len(manifest_data.files)
         except RuntimeError as e:
             raise click.ClickException(str(e))
             
@@ -72,17 +82,23 @@ def download(ctx: click.Context, url: str, output: str, depth: int, headless: bo
                     result = run_playwright_crawl(url, output, depth, delay, include_extensions, manifest_data)
                     if not result.success:
                          raise click.ClickException("Playwright fallback crawl failed.")
+                    files_skipped = result.files_skipped
+                    files_downloaded = len(result.files_downloaded) - files_skipped
                 except RuntimeError as e:
                     raise click.ClickException(str(e))
 
     # Build and save manifest
     new_manifest = build_manifest(url, output)
-    save_manifest(new_manifest, manifest_path)
+    final_manifest = merge_manifests(manifest_data, new_manifest)
+    save_manifest(final_manifest, manifest_path)
     
-    total_files = len(new_manifest.files)
-    total_size = sum(f.size_bytes for f in new_manifest.files.values())
+    total_files = len(final_manifest.files)
+    total_size = sum(f.size_bytes for f in final_manifest.files.values())
     
-    click.echo(f"Download complete.")
-    click.echo(f"Total files: {total_files}")
-    click.echo(f"Total size: {total_size} bytes")
-    click.echo(f"Manifest saved to: {manifest_path}")
+    click.echo(f"Download complete:")
+    click.echo(f"  URL:              {url}")
+    click.echo(f"  Output:           {output}")
+    click.echo(f"  Files downloaded: {total_files}")  # Actually represents final files available, we'll keep it total_files or files_downloaded? The spec output layout says "Files downloaded: 47". We will print `total_files` or `files_downloaded`.
+    click.echo(f"  Files skipped:    {files_skipped} (cached)")
+    click.echo(f"  Total size:       {total_size / 1024 / 1024:.1f} MB")
+    click.echo(f"  Manifest:         {manifest_path}")

@@ -19,7 +19,7 @@ def load_config(config_path: str, command_name: str, cli_params: dict, ctx: clic
             with open(config_path, 'r', encoding='utf-8') as f:
                 config_data = json.load(f)
         except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid JSON in config file {config_path}: {e}")
+            raise click.ClickException(f"Invalid JSON in config file {config_path}: {e.msg} (line {e.lineno}, column {e.colno})")
             
     cmd_config = config_data.get(command_name, {})
     final_params = {}

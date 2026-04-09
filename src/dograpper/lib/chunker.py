@@ -2,10 +2,13 @@
 
 import os
 import logging
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
 from dataclasses import dataclass, field
 from typing import List, Dict
 
 from ..utils.word_counter import count_words_file
+from ..utils.html_stripper import strip_html
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +129,76 @@ def chunk_by_semantic(files: List[str], base_dir: str, max_words: int) -> List[C
         
     return chunks
 
+def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int):
+    with open(out_filepath, 'w', encoding='utf-8') as f:
+        if with_index:
+            f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
+            f.write(f"## Arquivos neste chunk ({len(chunk.files)} arquivos, ~{chunk.total_words} palavras):\n")
+            for cf in chunk.files:
+                f.write(f"- {cf.relative_path} ({cf.word_count} palavras)\n")
+            f.write("\n---\n\n")
+        
+        for i, cf in enumerate(chunk.files):
+            if i > 0:
+                f.write("\n\n")
+            f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
+            
+            # Fetch text content inside try catch
+            true_filepath = os.path.join(base_dir, cf.relative_path)
+            try:
+                with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
+                    content = source_f.read()
+                    if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
+                        content = strip_html(content)
+                    f.write(content)
+            except Exception as e:
+                logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
+                f.write(f"<!-- Excluded unreadable blob: {e} -->")
+
+def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int):
+    root = ET.Element("chunk", index=str(chunk.index), total=str(total_chunks))
+    
+    if with_index:
+        meta = ET.SubElement(root, "meta")
+        ET.SubElement(meta, "file_count").text = str(len(chunk.files))
+        ET.SubElement(meta, "word_count").text = str(chunk.total_words)
+        files_elem = ET.SubElement(meta, "files")
+        for cf in chunk.files:
+            ET.SubElement(files_elem, "file", path=cf.relative_path, words=str(cf.word_count))
+            
+    sources = ET.SubElement(root, "sources")
+    # For CDATA handling, we'll build the base XML string and manually insert CDATA tags
+    # First, let's create placeholders
+    source_contents = {}
+    for i, cf in enumerate(chunk.files):
+        source_elem = ET.SubElement(sources, "source", path=cf.relative_path)
+        placeholder = f"__CDATA_PLACEHOLDER_{i}__"
+        source_elem.text = placeholder
+        
+        true_filepath = os.path.join(base_dir, cf.relative_path)
+        try:
+            with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
+                content = source_f.read()
+                if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
+                    content = strip_html(content)
+                # Escape CDATA end marker ']]>' -> ']]]]><![CDATA[>'
+                content = content.replace("]]>", "]]]]><![CDATA[>")
+                source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
+        except Exception as e:
+            logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
+            source_contents[placeholder] = f"\n<!-- Excluded unreadable blob: {e} -->\n"
+
+    # Generate XML string
+    rough_string = ET.tostring(root, 'utf-8', xml_declaration=True).decode('utf-8')
+    
+    # Replace placeholders with manual CDATA blocks
+    for placeholder, cdata_content in source_contents.items():
+        rough_string = rough_string.replace(placeholder, cdata_content)
+        
+    with open(out_filepath, 'w', encoding='utf-8') as f:
+        f.write(rough_string)
+
+
 def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int) -> List[str]:
     """Flush chunk classes out as disk files with or without headings."""
     os.makedirs(output_dir, exist_ok=True)
@@ -136,26 +209,9 @@ def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: st
         out_filepath = os.path.join(output_dir, out_filename)
         generated_paths.append(out_filepath)
         
-        with open(out_filepath, 'w', encoding='utf-8') as f:
-            if with_index:
-                f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
-                f.write(f"## Arquivos neste chunk ({len(chunk.files)} arquivos, ~{chunk.total_words} palavras):\n")
-                for cf in chunk.files:
-                    f.write(f"- {cf.relative_path} ({cf.word_count} palavras)\n")
-                f.write("\n---\n\n")
-            
-            for i, cf in enumerate(chunk.files):
-                if i > 0:
-                    f.write("\n\n")
-                f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
-                
-                # Fetch text content inside try catch
-                true_filepath = os.path.join(base_dir, cf.relative_path)
-                try:
-                    with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
-                        f.write(source_f.read())
-                except Exception as e:
-                    logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
-                    f.write(f"<!-- Excluded unreadable blob: {e} -->")
+        if format.lower() == "xml":
+            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks)
+        else:
+            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks)
                     
     return generated_paths
