@@ -3,9 +3,10 @@
 import os
 import json
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field, fields
 from typing import Dict, Optional
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,9 @@ class ManifestEntry:
     size_bytes: int
     etag: Optional[str] = None
     last_modified: Optional[str] = None
+    # Filesystem-relative path (relative to output_dir). Optional for backwards
+    # compatibility; when absent, fall back to the entry key.
+    local_path: Optional[str] = None
 
 @dataclass
 class Manifest:
@@ -22,20 +26,25 @@ class Manifest:
     last_run: str
     files: Dict[str, ManifestEntry]
 
+_ENTRY_FIELDS = {f.name for f in fields(ManifestEntry)}
+
+
 def load_manifest(path: str) -> Optional[Manifest]:
-    """Load manifest from disk."""
+    """Load manifest from disk, tolerating unknown fields from older versions."""
     if not os.path.exists(path):
         return None
-        
+
     try:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
-        files = {
-            k: ManifestEntry(**v) 
-            for k, v in data.get('files', {}).items()
-        }
-        
+
+        files = {}
+        for k, v in data.get('files', {}).items():
+            # Drop any fields the current dataclass doesn't know about so we
+            # stay forward/backwards compatible with manifest schema changes.
+            payload = {kk: vv for kk, vv in v.items() if kk in _ENTRY_FIELDS}
+            files[k] = ManifestEntry(**payload)
+
         return Manifest(
             base_url=data.get('base_url', ''),
             last_run=data.get('last_run', ''),
@@ -55,37 +64,45 @@ def save_manifest(manifest: Manifest, path: str) -> None:
         logger.error(f"Failed to save manifest to {path}: {e}")
 
 def build_manifest(base_url: str, output_dir: str) -> Manifest:
-    """Build a manifest based on the output directory contents."""
+    """Build a manifest based on the output directory contents.
+
+    Keys are URL-relative paths (the path component the file would have on the
+    original site) so the JSON shape matches the spec in about_dograpper.md.
+    The on-disk location — which typically includes the ``<netloc>`` directory
+    created by wget — is preserved in ``local_path`` so callers can still find
+    the file when re-running.
+    """
     files = {}
     last_run = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-    
-    # Strip trailing slash from base_url for consistent appending
+
     clean_base = base_url.rstrip('/')
-    
+    parsed_base = urlparse(base_url)
+    netloc = parsed_base.netloc
+
     for root, _, filenames in os.walk(output_dir):
         for f in filenames:
             full_path = os.path.join(root, f)
-            rel_path = os.path.relpath(full_path, output_dir)
+            fs_rel = os.path.relpath(full_path, output_dir).replace(os.sep, '/')
             size = os.path.getsize(full_path)
-            
-            # Reconstruct an approximate URL
-            # Note: For wget, rel_path might already include the domain folder.
-            # Building a robust manifest relies on how wget or playwright stored files.
-            # We assume reconstructing by just appending rel_path.
-            # If rel_path starts with domain, we might need to strip it.
-            # For simplicity per the prompt, we just store it.
-            url_approx = f"{clean_base}/{rel_path}"
-            
-            # Using Unix style paths for keys
-            key = rel_path.replace(os.sep, '/')
-            
+
+            # Strip the leading "<netloc>/" that wget adds so the key matches
+            # the URL path on the original site.
+            if netloc and (fs_rel == netloc or fs_rel.startswith(netloc + '/')):
+                url_rel = fs_rel[len(netloc):].lstrip('/')
+            else:
+                url_rel = fs_rel
+
+            url_approx = f"{clean_base}/{url_rel}" if url_rel else clean_base
+            key = url_rel or fs_rel
+
             files[key] = ManifestEntry(
                 url=url_approx,
                 size_bytes=size,
                 etag=None,
-                last_modified=None
+                last_modified=None,
+                local_path=fs_rel,
             )
-            
+
     return Manifest(
         base_url=base_url,
         last_run=last_run,

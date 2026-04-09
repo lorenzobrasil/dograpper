@@ -35,11 +35,13 @@ src/dograpper/
 │   └── wget_mirror.py      # Wrapper subprocess com retry e backoff
 └── utils/
     ├── logger.py           # setup_logger() com suporte a verbose/quiet
+    ├── html_stripper.py    # strip_html() via html.parser, descarta script/style
     └── word_counter.py     # count_words() e count_words_file()
 tests/
 ├── test_cli_smoke.py       # Help, flags obrigatórias, mutual exclusion
 ├── test_config.py          # Precedência, JSON inválido, arquivo ausente
 ├── test_download.py        # wget mock, SPA detector, manifest roundtrip
+├── test_e2e.py             # Integração ponta-a-ponta usando ./test-docs
 └── test_pack.py            # word_counter, ignore_parser, chunker, write_chunks, CLI integration
 ```
 

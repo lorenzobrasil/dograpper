@@ -252,8 +252,9 @@ def test_download_wget_success():
                     
                     with open(os.path.join(d, "index.html"), "w") as f:
                         f.write("content")
-                        
-                    res = runner.invoke(download, ['http://example.com', '-o', d])
+
+                    manifest_path = os.path.join(d, ".dograpper-manifest.json")
+                    res = runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
                     assert res.exit_code == 0
                     assert "Download complete" in res.output
                     assert "Files downloaded: 1" in res.output

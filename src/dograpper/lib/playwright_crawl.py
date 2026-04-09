@@ -69,7 +69,11 @@ def run_playwright_crawl(
                 # Find entry by URL
                 for rel_key, entry in manifest_data.files.items():
                     if entry.url == current_url:
-                        expected_full_path = os.path.join(output_dir, rel_key)
+                        # Prefer the stored on-disk path (set by build_manifest)
+                        # and fall back to the entry key for legacy manifests
+                        # where the key itself was the filesystem path.
+                        local_rel = getattr(entry, 'local_path', None) or rel_key
+                        expected_full_path = os.path.join(output_dir, local_rel)
                         if os.path.exists(expected_full_path):
                             logger.debug(f"Skipping (cached): {current_url}")
                             files_skipped += 1

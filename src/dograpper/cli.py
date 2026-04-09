@@ -6,13 +6,30 @@ from .utils.logger import setup_logger
 from .commands.download import download
 from .commands.pack import pack
 
-@click.group()
-@click.option('--verbose', '-v', is_flag=True, default=False, help="Log detalhado de cada operação")
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Suprimir output exceto erros críticos")
-@click.option('--config', default=".dograpper.json", help="Arquivo de configuração", type=click.Path())
+@click.group(context_settings={'help_option_names': ['-h', '--help']})
+@click.option('--verbose', '-v', is_flag=True, default=False,
+              help="Log detalhado (DEBUG) de cada operação")
+@click.option('--quiet', '-q', is_flag=True, default=False,
+              help="Suprimir output exceto erros críticos")
+@click.option('--config', default=".dograpper.json", show_default=True,
+              type=click.Path(),
+              help="Arquivo JSON de configuração (seções `download` e `pack`)")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, quiet: bool, config: str):
-    """CLI do dograpper - doc + wrapper."""
+    """dograpper — doc + wrapper.
+
+    Baixa documentações técnicas inteiras e empacota em chunks prontos para
+    importar no Google NotebookLM, respeitando seus limites de palavras por
+    fonte e de fontes por notebook.
+
+    \b
+    Pipeline típico:
+      dograpper download <url> -o ./docs
+      dograpper pack ./docs -o ./chunks
+
+    Cada subcomando tem ajuda própria: `dograpper <comando> --help`.
+    As flags globais `--verbose` e `--quiet` são mutuamente exclusivas.
+    """
     if verbose and quiet:
         click.echo("Error: --verbose and --quiet are mutually exclusive.", err=True)
         sys.exit(1)

@@ -10,20 +10,54 @@ from ..lib.chunker import chunk_by_size, chunk_by_semantic, write_chunks
 
 logger = logging.getLogger(__name__)
 
-@click.command()
+@click.command(
+    epilog=(
+        "\b\n"
+        "Exemplos:\n"
+        "  dograpper pack ./rust-docs -o ./chunks\n"
+        "  dograpper pack ./rust-docs -o ./chunks --strategy semantic --max-words-per-chunk 300000\n"
+        "  dograpper pack ./docs -o ./chunks --ignore '*.png' --ignore '**/404.html'\n"
+        "  dograpper pack ./docs -o ./chunks --format xml --no-index\n"
+    )
+)
 @click.argument('input_dir', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True)
-@click.option('--output', '-o', required=True, type=click.Path(), help="Diretório onde os chunks serão salvos")
-@click.option('--max-words-per-chunk', type=int, default=500000, help="Limite de palavras por chunk")
-@click.option('--max-chunks', type=int, default=50, help="Limite total de chunks")
-@click.option('--strategy', type=click.Choice(['size', 'semantic']), default='size', help="Estratégia de chunking")
-@click.option('--ignore-file', type=click.Path(), default='./.docsignore', help="Caminho para arquivo de exclusão")
-@click.option('--ignore', multiple=True, type=str, default=[], help="Padrões de exclusão inline")
-@click.option('--prefix', type=str, default="docs_chunk_", help="Prefixo dos arquivos gerados")
-@click.option('--with-index/--no-index', default=True, help="Incluir sumário no cabeçalho")
-@click.option('--format', type=click.Choice(['txt', 'md', 'xml']), default='md', help="Formato de saída")
+@click.option('--output', '-o', required=True, type=click.Path(),
+              help="Diretório onde os chunks serão salvos")
+@click.option('--max-words-per-chunk', type=int, default=500000, show_default=True,
+              help="Limite de palavras por chunk (teto por fonte do NotebookLM)")
+@click.option('--max-chunks', type=int, default=50, show_default=True,
+              help="Limite total de chunks (teto de fontes por notebook)")
+@click.option('--strategy', type=click.Choice(['size', 'semantic']), default='size', show_default=True,
+              help="size: empacota por contagem de palavras. semantic: agrupa por diretório primeiro")
+@click.option('--ignore-file', type=click.Path(), default='./.docsignore', show_default=True,
+              help="Arquivo de exclusão com sintaxe gitignore")
+@click.option('--ignore', multiple=True, type=str, default=[],
+              help="Padrão de exclusão inline (pode repetir): --ignore '*.png' --ignore '**/404.html'")
+@click.option('--prefix', type=str, default="docs_chunk_", show_default=True,
+              help="Prefixo dos arquivos gerados")
+@click.option('--with-index/--no-index', default=True, show_default=True,
+              help="Incluir sumário de arquivos no cabeçalho de cada chunk")
+@click.option('--format', type=click.Choice(['txt', 'md', 'xml']), default='md', show_default=True,
+              help="Formato de saída dos chunks")
 @click.pass_context
 def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str):
-    """Agrega arquivos baixados em chunks."""
+    """Agrega arquivos baixados em chunks com contagem de palavras controlada.
+
+    Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
+    `--ignore`), e gera arquivos sequenciais `docs_chunk_NN.<fmt>` no
+    diretório de saída. Cada chunk tem um cabeçalho opcional listando os
+    arquivos que contém (controlado por `--with-index/--no-index`).
+
+    \b
+    Estratégias de agrupamento:
+      size      Empacota por contagem de palavras pura, em ordem alfabética.
+      semantic  Agrupa arquivos do mesmo diretório antes de aplicar o
+                limite de palavras, preservando coesão temática. Grupos
+                que excedem o limite são subdivididos automaticamente.
+
+    Se um único arquivo exceder `--max-words-per-chunk`, ele é colocado
+    sozinho em um chunk e um warning é emitido (o CLI não falha).
+    """
     
     ctx.ensure_object(dict)
     config_path = ctx.obj.get('CONFIG_PATH', '.dograpper.json')

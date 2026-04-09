@@ -242,6 +242,7 @@ src/dograpper/
 │   ├── spa_detector.py     # Heurística de detecção de SPA
 │   └── wget_mirror.py      # Wrapper do wget --mirror
 └── utils/
+    ├── html_stripper.py    # Extração de texto de HTML (stdlib html.parser)
     ├── logger.py           # Setup de logging
     └── word_counter.py     # Contagem de palavras
 ```
@@ -251,15 +252,19 @@ src/dograpper/
 ## Desenvolvimento
 
 ```bash
-# Instalar em modo editável com dependências de dev
-uv sync
+# Instalar em modo editável com dependências de dev (pytest incluso)
+uv sync --extra dev
 
 # Rodar testes
-uv run pytest tests/ -v
+uv run --extra dev pytest tests/ -v
 
 # Rodar o CLI
 uv run dograpper --help
+uv run dograpper download --help
+uv run dograpper pack --help
 ```
+
+Cada subcomando aceita `-h` como atalho para `--help` e exibe exemplos práticos no rodapé.
 
 ---
 
