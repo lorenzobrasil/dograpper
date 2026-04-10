@@ -39,8 +39,14 @@ logger = logging.getLogger(__name__)
               help="Incluir sumário de arquivos no cabeçalho de cada chunk")
 @click.option('--format', type=click.Choice(['txt', 'md', 'xml']), default='md', show_default=True,
               help="Formato de saída dos chunks")
+@click.option('--no-extract', is_flag=True, default=False,
+              help="Desativa a extração inteligente de conteúdo. Usa o HTML inteiro como no comportamento anterior.")
+@click.option('--show-tokens', is_flag=True, default=False,
+              help="Exibe contagem de tokens por chunk e total no summary final.")
+@click.option('--token-encoding', type=str, default="cl100k", show_default=True,
+              help="Encoding do tokenizer (cl100k, o200k, p50k). Requer --show-tokens.")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -71,7 +77,10 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'ignore': ignore,
         'prefix': prefix,
         'with_index': with_index,
-        'format': format
+        'format': format,
+        'no_extract': no_extract,
+        'show_tokens': show_tokens,
+        'token_encoding': token_encoding,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -85,6 +94,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     pref = merged_params.get('prefix', prefix)
     w_index = merged_params.get('with_index', with_index)
     fmt = merged_params.get('format', format)
+    no_ext = merged_params.get('no_extract', no_extract)
+    s_tokens = merged_params.get('show_tokens', show_tokens)
+    t_encoding = merged_params.get('token_encoding', token_encoding)
     
     # 3. List all files
     all_files = []
@@ -105,9 +117,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         
     # 7. Execute chunking
     if strat == 'semantic':
-        chunks = chunk_by_semantic(filtered_paths, input_dir, max_w)
+        chunks = chunk_by_semantic(filtered_paths, input_dir, max_w, no_extract=no_ext)
     else:
-        chunks = chunk_by_size(filtered_paths, input_dir, max_w)
+        chunks = chunk_by_size(filtered_paths, input_dir, max_w, no_extract=no_ext)
         
     generated_chunk_count = len(chunks)
     
@@ -116,9 +128,27 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         logger.warning(f"Generated {generated_chunk_count} chunks, exceeding max-chunks limit of {max_c}. Consider increasing --max-words-per-chunk or adding --ignore rules.")
         
     # 9. Write outputs
-    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count)
+    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext)
     
-    # 10. Summary footprint calculation
+    # 10. Token counting (opt-in)
+    token_counts = []
+    if s_tokens:
+        from ..utils.token_counter import count_tokens, format_token_summary
+
+        for chunk in chunks:
+            # Read the written chunk file to count tokens on the final output
+            chunk_filename = f"{pref}{chunk.index:02d}.{fmt}"
+            chunk_filepath = os.path.join(output_dir, chunk_filename)
+            try:
+                with open(chunk_filepath, 'r', encoding='utf-8', errors='replace') as cf:
+                    chunk_text = cf.read()
+                tc = count_tokens(chunk_text, encoding=t_encoding)
+                token_counts.append(tc)
+                logger.debug(f"[tokens] {chunk_filename}: {tc.words} words → {tc.tokens} tokens ({tc.encoding})")
+            except Exception as e:
+                logger.warning(f"Failed to count tokens for {chunk_filename}: {e}")
+
+    # 11. Summary footprint calculation
     files_processed = sum(len(c.files) for c in chunks)
     files_excluded = len(all_files) - len(filtered_paths)
     total_words = sum(c.total_words for c in chunks)
@@ -143,6 +173,10 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
          
     click.echo(f"  Total words:     {total_words:,}".replace(',', '.'))
     click.echo(f"  Output:          {output_dir}/")
+
+    if token_counts:
+        from ..utils.token_counter import format_token_summary
+        click.echo(format_token_summary(token_counts))
     
     # Warnings at bottom
     oversized = [c for c in chunks if c.total_words > max_w]
