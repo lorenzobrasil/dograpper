@@ -36,9 +36,10 @@ sudo apt install wget
 Para sites SPA (React, Next.js, etc.), é necessário o `playwright`:
 
 ```bash
-uv add playwright
+uv sync --extra headless
 playwright install chromium
 ```
+
 
 ---
 
@@ -111,6 +112,11 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--prefix` | — | `docs_chunk_` | Prefixo dos arquivos gerados |
 | `--with-index` / `--no-index` | — | `--with-index` | Cabeçalho com índice de arquivos |
 | `--format` | — | `md` | Formato de saída: `txt`, `md`, `xml` |
+| `--no-extract` | — | `false` | Desativa extração inteligente de conteúdo HTML |
+| `--show-tokens` | — | `false` | Exibe contagem de tokens no resumo final |
+| `--token-encoding` | — | `cl100k` | Encoding do tokenizer: `cl100k`, `o200k`, `p50k` |
+
+**Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
@@ -135,6 +141,15 @@ dograpper pack ./rust-docs -o ./chunks \
 
 # Sem cabeçalho, formato txt
 dograpper pack ./rust-docs -o ./chunks --no-index --format txt
+
+# Sem extração inteligente (HTML integral)
+dograpper pack ./rust-docs -o ./chunks --no-extract
+
+# Com contagem de tokens no resumo
+dograpper pack ./rust-docs -o ./chunks --show-tokens
+
+# Tokens com encoding específico (GPT-4o)
+dograpper pack ./rust-docs -o ./chunks --show-tokens --token-encoding o200k
 ```
 
 ### Flags globais
@@ -219,6 +234,14 @@ Pack complete:
   Output:          ./chunks/
 ```
 
+Com `--show-tokens`, linhas adicionais são exibidas:
+
+```
+  Tokens per chunk: ~127.000 avg (min: 105.610, max: 151.740)
+  Total tokens:    634.800
+  Encoding:        cl100k_base
+```
+
 Warnings são exibidos quando:
 - Um arquivo individual excede `--max-words-per-chunk` (é colocado sozinho em um chunk)
 - O total de chunks excede `--max-chunks`
@@ -242,8 +265,10 @@ src/dograpper/
 │   ├── spa_detector.py     # Heurística de detecção de SPA
 │   └── wget_mirror.py      # Wrapper do wget --mirror
 └── utils/
-    ├── html_stripper.py    # Extração de texto de HTML (stdlib html.parser)
+    ├── content_extractor.py # Extração inteligente de conteúdo HTML (remove boilerplate)
+    ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
     ├── logger.py           # Setup de logging
+    ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)
     └── word_counter.py     # Contagem de palavras
 ```
 

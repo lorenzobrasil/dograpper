@@ -80,3 +80,6 @@ chunks-filtered/
 chunks-semantic/
 chunks-small/
 .dograpper-manifest.json
+test-docs/
+test-output/
+.omc/

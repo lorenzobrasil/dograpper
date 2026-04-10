@@ -14,6 +14,7 @@ CLI em Python que baixa documentações técnicas inteiras (Kubernetes, Rust, AW
 - **Package manager**: uv
 - **Filtro de arquivos**: pathspec (sintaxe gitignore)
 - **Crawling SPA**: playwright (dependência opcional, import condicional)
+- **Token counting**: tiktoken (dependência obrigatória)
 - **Download padrão**: wget (dependência do sistema)
 - **Testes**: pytest com click.testing.CliRunner
 
@@ -34,15 +35,19 @@ src/dograpper/
 │   ├── spa_detector.py     # is_spa() via html.parser da stdlib
 │   └── wget_mirror.py      # Wrapper subprocess com retry e backoff
 └── utils/
+    ├── content_extractor.py # extract_content() — extração inteligente de HTML (semantic containers, density scoring, blacklist)
     ├── logger.py           # setup_logger() com suporte a verbose/quiet
     ├── html_stripper.py    # strip_html() via html.parser, descarta script/style
+    ├── token_counter.py    # count_tokens() — tiktoken opcional, fallback estimativa palavras→tokens
     └── word_counter.py     # count_words() e count_words_file()
 tests/
 ├── test_cli_smoke.py       # Help, flags obrigatórias, mutual exclusion
 ├── test_config.py          # Precedência, JSON inválido, arquivo ausente
+├── test_content_extractor.py # Extração inteligente: semantic, density, blacklist, edge cases, CLI
 ├── test_download.py        # wget mock, SPA detector, manifest roundtrip
 ├── test_e2e.py             # Integração ponta-a-ponta usando ./test-docs
-└── test_pack.py            # word_counter, ignore_parser, chunker, write_chunks, CLI integration
+├── test_pack.py            # word_counter, ignore_parser, chunker, write_chunks, CLI integration
+└── test_token_counter.py   # Token counting: fallback, tiktoken, format_summary, CLI integration
 ```
 
 ## Como rodar localmente
@@ -69,16 +74,19 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `.docsignore.example` | Ao mexer em `ignore_parser.py` |
 | `tests/test_pack.py` | Antes de alterar qualquer coisa em `lib/chunker.py` ou `commands/pack.py` |
 | `tests/test_download.py` | Antes de alterar qualquer coisa em `lib/wget_mirror.py`, `lib/spa_detector.py`, ou `commands/download.py` |
+| `tests/test_content_extractor.py` | Antes de alterar `utils/content_extractor.py` |
+| `tests/test_token_counter.py` | Antes de alterar `utils/token_counter.py` |
 
 ## Regras críticas
 
-1. **Não adicionar dependências sem necessidade.** O projeto é deliberadamente leve: `click` e `pathspec` apenas. Playwright é opcional (import condicional). Não adicionar BeautifulSoup, rich, requests, ou qualquer lib sem discussão explícita.
+1. **Dependências com problemas de compatibilidade devem ser opcionais.** Libs que exigem binários do sistema, compilação nativa problemática, ou que não funcionam em todos os ambientes (ex: playwright, que requer `playwright install chromium`) devem ser import condicional com mensagem de erro amigável. Dependências pip puras podem ser obrigatórias sem restrição.
 2. **Não usar repomix.** A concatenação de chunks é feita em Python puro. Essa é uma decisão arquitetural tomada — não reverter.
 3. **Contagem de palavras, não bytes.** O chunking usa `len(text.split())` como métrica. Os limites do NotebookLM são em palavras. Não mudar para bytes.
-4. **Playwright nunca é import top-level.** Sempre import condicional dentro da função, com mensagem de erro amigável se ausente.
+4. **Playwright nunca é import top-level.** Sempre import condicional dentro da função, com mensagem de erro amigável se ausente. Dependências pip puras (tiktoken, etc.) podem ser import top-level normalmente.
 5. **Testes existentes não podem quebrar.** Qualquer mudança deve manter `uv run pytest tests/ -v` passando integralmente antes de commitar.
 6. **Config precedência é inviolável**: defaults do click < `.dograpper.json` < flags CLI explícitas. Usa `ctx.get_parameter_source()` para distinguir. Não simplificar esse mecanismo.
 7. **Encoding tolerante.** Leitura de arquivos sempre com `errors="replace"`. O CLI não deve crashar por causa de caracteres estranhos em HTMLs baixados.
+8. Ignorar (não ler) tudo que estiver em `./temporario/`
 
 ## Padrões de commit e branch
 
@@ -123,4 +131,16 @@ uv run dograpper pack ./test-docs -o ./chunks --max-words-per-chunk 5000
 
 # Pack com verbose para debug
 uv run dograpper -v pack ./test-docs -o ./chunks --strategy semantic
+
+# Pack sem extração inteligente (HTML integral)
+uv run dograpper pack ./test-docs -o ./chunks --no-extract
+
+# Pack com contagem de tokens
+uv run dograpper pack ./test-docs -o ./chunks --show-tokens
+
+# Rodar testes de extração de conteúdo
+uv run pytest tests/test_content_extractor.py -v
+
+# Rodar testes de token counter
+uv run pytest tests/test_token_counter.py -v
 ```
