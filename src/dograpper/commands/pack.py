@@ -296,12 +296,19 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         import json as _json
         from ..utils.link_extractor import extract_links, build_cross_ref_index, annotate_cross_refs
 
-        # Build file_to_chunk map
+        # Build file_to_chunk map (with normalized variants for index.html)
         file_to_chunk = {}
         for chunk in chunks:
             chunk_id = f"{pref}{chunk.index:02d}"
             for cf in chunk.files:
                 file_to_chunk[cf.relative_path] = chunk_id
+                # Also register normalized path (without /index.html suffix)
+                # so that links resolved by extract_links can match
+                rp = cf.relative_path
+                if rp.endswith("/index.html"):
+                    file_to_chunk[rp[:-len("/index.html")]] = chunk_id
+                elif rp == "index.html":
+                    file_to_chunk[""] = chunk_id
 
         # Extract links from all HTML files
         all_links = []
