@@ -145,6 +145,138 @@ def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extrac
         
     return chunks
 
+def balance_chunks(chunks: List[Chunk], target_chunks: int, max_words: int) -> List[Chunk]:
+    """Redistribute files across chunks for uniform word balance.
+
+    Used by --bundle to ensure chunks have similar sizes, improving
+    LLM ingestion and NotebookLM Audio Overview quality.
+
+    Does not alter file order within each chunk.
+    Does not split files — operates at ChunkFile level.
+    """
+    # Flatten all files preserving order
+    flat = []
+    for c in chunks:
+        flat.extend(c.files)
+
+    if not flat:
+        return []
+
+    # If fewer files than target, each file becomes its own chunk
+    if len(flat) <= target_chunks:
+        result = []
+        for i, cf in enumerate(flat):
+            result.append(Chunk(index=i + 1, files=[cf], total_words=cf.word_count))
+        return result
+
+    total_words = sum(cf.word_count for cf in flat)
+    target_words = total_words // target_chunks
+
+    result = []
+    current = Chunk(index=1)
+    remaining_files = len(flat)
+
+    for cf in flat:
+        remaining_files -= 1
+        remaining_budget = target_chunks - len(result) - 1  # chunks left after current
+
+        # Close current chunk if adding this file would exceed max_words,
+        # but only if we still have budget for more chunks
+        if current.files and current.total_words + cf.word_count > max_words and remaining_budget > 0:
+            result.append(current)
+            current = Chunk(index=len(result) + 1)
+            remaining_budget -= 1
+
+        current.files.append(cf)
+        current.total_words += cf.word_count
+
+        # Close if we've hit the target and still have budget
+        if current.total_words >= target_words and remaining_budget > 0 and remaining_files > 0:
+            result.append(current)
+            current = Chunk(index=len(result) + 1)
+
+    # Last chunk gets whatever remains
+    if current.files:
+        result.append(current)
+
+    # Re-index sequentially
+    for i, c in enumerate(result):
+        c.index = i + 1
+
+    return result
+
+
+def generate_import_guide(chunks: List[Chunk], output_dir: str, preset: str,
+                          total_words: int, heading_map: Dict = None) -> str:
+    """Generate IMPORT_GUIDE.md with upload instructions for the preset."""
+    os.makedirs(output_dir, exist_ok=True)
+
+    lines = []
+
+    if preset == 'notebooklm':
+        lines.append("# Guia de Importação — NotebookLM\n")
+        lines.append("## Resumo\n")
+        lines.append(f"- **Total de fontes:** {len(chunks)} chunks")
+        lines.append(f"- **Total de palavras:** {total_words:,}".replace(',', '.'))
+        lines.append("- **Limite NotebookLM:** 50 fontes, 500.000 palavras/fonte\n")
+        lines.append("## Ordem de Upload Recomendada\n")
+        lines.append("Upload na ordem abaixo para melhor resultado no Audio Overview:\n")
+        lines.append("| # | Arquivo | Palavras | Módulo/Seção |")
+        lines.append("|---|---------|----------|--------------|")
+
+        for c in chunks:
+            chunk_name = f"docs_chunk_{c.index:02d}.md"
+            words_fmt = f"{c.total_words:,}".replace(',', '.')
+
+            # Derive section from heading_map or directory
+            section = ""
+            if c.files:
+                first_file = c.files[0].relative_path
+                if heading_map and first_file in heading_map and heading_map[first_file]:
+                    section = heading_map[first_file][0].text
+                else:
+                    parent = os.path.dirname(first_file)
+                    section = parent.split('/')[-1] if parent else os.path.splitext(first_file)[0]
+
+            lines.append(f"| {c.index} | {chunk_name} | {words_fmt} | {section} |")
+
+        lines.append("")
+        lines.append("## Dicas para Audio Overview\n")
+        lines.append("- Faça upload de todos os chunks antes de gerar o overview.")
+        lines.append("- O NotebookLM processa melhor quando os chunks têm tamanho similar.")
+        lines.append("- Se o overview ficar superficial, remova chunks de changelog/FAQ")
+        lines.append("  e mantenha apenas os conceituais.")
+    else:
+        # rag-standard: simple mapping, no tips
+        lines.append("# Guia de Importação\n")
+        lines.append("## Resumo\n")
+        lines.append(f"- **Total de fontes:** {len(chunks)} chunks")
+        lines.append(f"- **Total de palavras:** {total_words:,}".replace(',', '.'))
+        lines.append("")
+        lines.append("## Mapeamento de Chunks\n")
+        lines.append("| # | Arquivo | Palavras | Módulo/Seção |")
+        lines.append("|---|---------|----------|--------------|")
+
+        for c in chunks:
+            chunk_name = f"docs_chunk_{c.index:02d}.md"
+            words_fmt = f"{c.total_words:,}".replace(',', '.')
+            section = ""
+            if c.files:
+                first_file = c.files[0].relative_path
+                if heading_map and first_file in heading_map and heading_map[first_file]:
+                    section = heading_map[first_file][0].text
+                else:
+                    parent = os.path.dirname(first_file)
+                    section = parent.split('/')[-1] if parent else os.path.splitext(first_file)[0]
+            lines.append(f"| {c.index} | {chunk_name} | {words_fmt} | {section} |")
+
+    guide_path = os.path.join(output_dir, "IMPORT_GUIDE.md")
+    with open(guide_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(lines) + "\n")
+
+    return guide_path
+
+
 def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False, text_overrides: Dict[str, str] = None) -> str:
     """Read a source file from disk, stripping HTML markup if applicable."""
     if text_overrides and cf.relative_path in text_overrides:

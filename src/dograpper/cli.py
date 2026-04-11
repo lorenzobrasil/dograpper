@@ -5,6 +5,7 @@ import sys
 from .utils.logger import setup_logger
 from .commands.download import download
 from .commands.pack import pack
+from .commands.sync import sync
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
 @click.option('--verbose', '-v', is_flag=True, default=False,
@@ -43,6 +44,7 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, config: str):
 
 cli.add_command(download)
 cli.add_command(pack)
+cli.add_command(sync)
 
 def main():
     cli(obj={})

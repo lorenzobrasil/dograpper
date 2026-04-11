@@ -19,6 +19,7 @@ class ManifestEntry:
     # Filesystem-relative path (relative to output_dir). Optional for backwards
     # compatibility; when absent, fall back to the entry key.
     local_path: Optional[str] = None
+    mtime: Optional[float] = None
 
 @dataclass
 class Manifest:
@@ -95,12 +96,15 @@ def build_manifest(base_url: str, output_dir: str) -> Manifest:
             url_approx = f"{clean_base}/{url_rel}" if url_rel else clean_base
             key = url_rel or fs_rel
 
+            mtime = os.path.getmtime(full_path)
+
             files[key] = ManifestEntry(
                 url=url_approx,
                 size_bytes=size,
                 etag=None,
                 last_modified=None,
                 local_path=fs_rel,
+                mtime=mtime,
             )
 
     return Manifest(
@@ -129,3 +133,40 @@ def merge_manifests(old: Optional[Manifest], new: Manifest) -> Manifest:
         last_run=new.last_run,
         files=merged_files
     )
+
+
+@dataclass
+class ManifestDiff:
+    added: list
+    modified: list
+    removed: list
+
+
+def diff_manifests(old: Optional[Manifest], new: Manifest) -> ManifestDiff:
+    """Compare two manifests and return the differences."""
+    if old is None:
+        return ManifestDiff(
+            added=list(new.files.keys()),
+            modified=[],
+            removed=[],
+        )
+
+    added = []
+    modified = []
+    removed = []
+
+    for key, new_entry in new.files.items():
+        if key not in old.files:
+            added.append(key)
+        else:
+            old_entry = old.files[key]
+            if old_entry.size_bytes != new_entry.size_bytes:
+                modified.append(key)
+            elif old_entry.mtime != new_entry.mtime:
+                modified.append(key)
+
+    for key in old.files:
+        if key not in new.files:
+            removed.append(key)
+
+    return ManifestDiff(added=added, modified=modified, removed=removed)

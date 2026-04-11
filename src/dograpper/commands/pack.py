@@ -1,8 +1,10 @@
 """Pack subcommand."""
 
 import os
+import json
 import click
 import logging
+from datetime import datetime, timezone
 
 from ..lib.config_loader import load_config
 from ..lib.ignore_parser import filter_files
@@ -60,8 +62,18 @@ logger = logging.getLogger(__name__)
 @click.option('--cross-refs', is_flag=True, default=False,
               help="Gera cross_refs.json com referências cruzadas entre chunks "
                    "e anota o texto dos chunks com ponteiros [-> chunk_id].")
+@click.option('--delta', is_flag=True, default=False,
+              help="Reprocessa apenas arquivos alterados desde o último pack.")
+@click.option('--manifest', type=str, default=".dograpper-manifest.json",
+              show_default=True,
+              help="Manifest do download para comparação delta.")
+@click.option('--bundle', type=click.Choice(['notebooklm', 'rag-standard']),
+              default=None,
+              help="Preset de empacotamento otimizado. "
+                   "'notebooklm': ≤50 chunks balanceados. "
+                   "'rag-standard': sem restrições especiais.")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool, delta: bool, manifest: str, bundle: str):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -101,6 +113,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'dedup_threshold': dedup_threshold,
         'context_header': context_header,
         'cross_refs': cross_refs,
+        'delta': delta,
+        'manifest': manifest,
+        'bundle': bundle,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -122,6 +137,16 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     dedup_thresh = merged_params.get('dedup_threshold', dedup_threshold)
     ctx_header = merged_params.get('context_header', context_header)
     do_cross_refs = merged_params.get('cross_refs', cross_refs)
+    is_delta = merged_params.get('delta', delta)
+    manifest_path = merged_params.get('manifest', manifest)
+    bundle_preset = merged_params.get('bundle', bundle)
+
+    # 2b. Bundle overrides
+    if bundle_preset == 'notebooklm':
+        max_c = min(max_c, 50)
+        if max_w > 500000:
+            max_w = 500000
+        logger.info(f"[bundle:notebooklm] max_chunks={max_c}, max_words={max_w}")
 
     # 3. List all files
     all_files = []
@@ -139,7 +164,32 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     # 6. Check empty after filter
     if not filtered_paths:
         raise click.ClickException("All files were excluded by ignore rules. Check your .docsignore or --ignore flags.")
-        
+
+    # 6b. Delta filtering (opt-in, after filter, before dedup)
+    diff = None
+    if is_delta:
+        from ..lib.manifest import load_manifest, build_manifest, diff_manifests
+
+        old_manifest = load_manifest(manifest_path)
+        current_manifest = build_manifest(base_url="", output_dir=input_dir)
+        diff = diff_manifests(old_manifest, current_manifest)
+
+        delta_files = set(diff.added + diff.modified)
+        pre_count = len(filtered_paths)
+
+        filtered_paths = [
+            f for f in filtered_paths
+            if os.path.relpath(f, input_dir).replace(os.sep, '/') in delta_files
+        ]
+
+        logger.info(f"[delta] {pre_count} files → {len(filtered_paths)} changed "
+                     f"({len(diff.added)} added, {len(diff.modified)} modified, "
+                     f"{len(diff.removed)} removed)")
+
+        if not filtered_paths:
+            click.echo("Delta: no files changed since last pack. Nothing to do.")
+            return
+
     # 7. Deduplication (opt-in, before chunking)
     dedup_stats = None
     dedup_word_counts = None
@@ -207,6 +257,11 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         chunks = chunk_by_semantic(filtered_paths, input_dir, max_w, no_extract=no_ext, word_counts=dedup_word_counts)
     else:
         chunks = chunk_by_size(filtered_paths, input_dir, max_w, no_extract=no_ext, word_counts=dedup_word_counts)
+
+    # 8b. Bundle balancing (post-process)
+    if bundle_preset == 'notebooklm':
+        from ..lib.chunker import balance_chunks
+        chunks = balance_chunks(chunks, target_chunks=max_c, max_words=max_w)
 
     generated_chunk_count = len(chunks)
 
@@ -359,7 +414,36 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
             except Exception as e:
                 logger.warning(f"Failed to annotate cross-refs for {chunk_filename}: {e}")
 
-    # 10b. Token counting (opt-in)
+    # 10b. Delta manifest (opt-in, after write)
+    if is_delta and diff is not None:
+        delta_info = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "added": diff.added,
+            "modified": diff.modified,
+            "removed": diff.removed,
+            "chunks_generated": [
+                {
+                    "chunk": f"{pref}{c.index:02d}",
+                    "files": [cf.relative_path for cf in c.files]
+                }
+                for c in chunks
+            ],
+        }
+        delta_path = os.path.join(output_dir, "delta_manifest.json")
+        with open(delta_path, 'w', encoding='utf-8') as df:
+            json.dump(delta_info, df, indent=2)
+
+    # 10c. Import guide (opt-in, for bundle presets)
+    guide_path = None
+    if bundle_preset is not None:
+        from ..lib.chunker import generate_import_guide
+        total_words_for_guide = sum(c.total_words for c in chunks)
+        guide_path = generate_import_guide(
+            chunks, output_dir, bundle_preset, total_words_for_guide,
+            heading_map=heading_map
+        )
+
+    # 10d. Token counting (opt-in)
     token_counts = []
     if s_tokens:
         from ..utils.token_counter import count_tokens, format_token_summary
@@ -411,6 +495,13 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         else:
             pct = 0
         click.echo(f"  Palavras removidas: {dedup_stats.words_removed:,} (~{pct}%)".replace(',', '.'))
+
+    if is_delta and diff is not None:
+        click.echo(f"  Delta:           {len(diff.added)} added, {len(diff.modified)} modified, {len(diff.removed)} removed")
+        click.echo(f"  Delta manifest:  {os.path.join(output_dir, 'delta_manifest.json')}")
+
+    if guide_path is not None:
+        click.echo(f"  Import guide:    {guide_path}")
 
     click.echo(f"  Output:          {output_dir}/")
 
