@@ -63,15 +63,13 @@ def _normalize_extensions(value) -> str:
               help="Arquivo de cache JSON para downloads incrementais")
 @click.pass_context
 def download(ctx: click.Context, url: str, output: str, depth: int, headless: bool, delay: int, include_extensions: str, manifest: str):
-    """Espelha um site de documentação localmente.
+    """Espelha um site de documentação localmente para processamento offline.
 
-    Tenta `wget --mirror` primeiro. Se detectar que o site é uma SPA
-    (maioria dos HTMLs são shells vazios tipo `<div id="root">`), faz
-    fallback automático para Playwright. Use `--headless` para pular
-    direto para Playwright quando já souber que o site é uma SPA.
+    Cria um mirror completo do site usando wget. Se detectar SPA
+    (shells HTML vazios), faz fallback automático para Playwright.
+    Use --headless para forçar Playwright diretamente.
 
-    Downloads são incrementais: um manifest JSON registra o estado do
-    output, e re-execuções só re-baixam o que mudou de fato.
+    Downloads são incrementais via manifest JSON.
     """
     
     ctx.ensure_object(dict)

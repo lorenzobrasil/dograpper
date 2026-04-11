@@ -17,19 +17,20 @@ from .commands.sync import sync
               help="Arquivo JSON de configuração (seções `download` e `pack`)")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, quiet: bool, config: str):
-    """dograpper — doc + wrapper.
+    """dograpper — Context Engineering Pipeline for Deterministic LLM Ingestion.
 
-    Baixa documentações técnicas inteiras e empacota em chunks prontos para
-    importar no Google NotebookLM, respeitando seus limites de palavras por
-    fonte e de fontes por notebook.
+    Transforma documentação HTML em contexto estruturado, dedupicado,
+    pontuado e versionado para ingestão em LLMs estáticos.
 
     \b
     Pipeline típico:
       dograpper download <url> -o ./docs
-      dograpper pack ./docs -o ./chunks
+      dograpper pack ./docs -o ./chunks --context-header --score
+
+    Pipeline rápido:
+      dograpper sync <url> -o ./docs
 
     Cada subcomando tem ajuda própria: `dograpper <comando> --help`.
-    As flags globais `--verbose` e `--quiet` são mutuamente exclusivas.
     """
     if verbose and quiet:
         click.echo("Error: --verbose and --quiet are mutually exclusive.", err=True)

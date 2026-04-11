@@ -1,13 +1,35 @@
 # dograpper
 
-**doc + wrapper** — CLI que baixa documentações técnicas inteiras e empacota em chunks prontos para importar no [Google NotebookLM](https://notebooklm.google.com/).
+**Context Engineering Pipeline for Deterministic LLM Ingestion**
+
+Transforma documentação HTML em contexto estruturado, dedupicado, pontuado
+e versionado — pronto para ingestão em NotebookLM, RAG pipelines, Claude
+Projects e fine-tuning.
 
 ## O problema
 
-O NotebookLM impõe dois limites para fontes de um notebook: um teto de palavras por fonte e um número máximo de fontes. Documentações como Kubernetes, Rust ou AWS facilmente estouram ambos os limites. O dograpper resolve isso em dois passos:
+LLMs estáticos não navegam na web. Quando recebem documentação crua como
+contexto, sofrem com: boilerplate (navbars, footers, banners), duplicação
+entre páginas, chunks sem hierarquia, e blocos de código cortados ao meio.
+O resultado é degradação de retrieval e alucinação.
 
-1. **`download`** — espelha o site da documentação localmente (via `wget` ou `playwright` para SPAs)
-2. **`pack`** — agrupa os arquivos em chunks que respeitam os limites, prontos para upload manual
+## A solução
+
+`dograpper` é uma pipeline determinística que resolve cada etapa:
+
+```
+URL → Mirror → Extract → Dedup → Score → Chunk → Export (MD/JSONL)
+```
+
+| Etapa | O que faz | Flag |
+|-------|-----------|------|
+| **Mirror** | Espelha site localmente via wget/playwright | `download` |
+| **Extract** | Remove boilerplate, preserva conteúdo principal | (automático) |
+| **Dedup** | Elimina blocos repetidos entre páginas | `--dedup` |
+| **Score** | Audita qualidade do contexto por chunk | `--score` |
+| **Chunk** | Agrupa respeitando limites, preservando blocos de código | `pack` |
+| **Context** | Injeta breadcrumb, metadados, schema versionado | `--context-header` |
+| **Export** | MD, JSONL, com cross-refs e guia de importação | `--format`, `--cross-refs` |
 
 ---
 
@@ -40,24 +62,54 @@ uv sync --extra headless
 playwright install chromium
 ```
 
-
 ---
 
 ## Início rápido
 
 ```bash
-# 1. Baixar a documentação do Click (site pequeno, bom para testar)
-dograpper download https://click.palletsprojects.com/en/stable/ -o ./click-docs -d 2
+# Pipeline completa: download + pack otimizado para NotebookLM
+dograpper download https://flask.palletsprojects.com/en/stable/ -o ./flask-docs
+dograpper pack ./flask-docs -o ./chunks --bundle notebooklm --context-header --score
 
-# 2. Empacotar em chunks
-dograpper pack ./click-docs -o ./chunks
+# Ou em um comando:
+dograpper sync https://flask.palletsprojects.com/en/stable/ -o ./flask-docs
 
-# 3. Importar os arquivos de ./chunks/ no NotebookLM como fontes
+# Para RAG: export JSONL com cross-references
+dograpper pack ./flask-docs -o ./chunks --format jsonl --cross-refs --score
+
+# Updates incrementais (só reprocessa o que mudou)
+dograpper pack ./flask-docs -o ./chunks --delta
 ```
 
 ---
 
-## Uso
+## Casos de uso
+
+### NotebookLM
+```bash
+dograpper pack ./docs -o ./chunks --bundle notebooklm --context-header --score
+# Gera ≤50 chunks balanceados + IMPORT_GUIDE.md com ordem de upload
+```
+
+### RAG / Vector DB
+```bash
+dograpper pack ./docs -o ./chunks --format jsonl --cross-refs --score
+# JSONL pronto para embeddings, com grafo de referências cruzadas
+```
+
+### Manutenção incremental (CI/CD)
+```bash
+dograpper sync <url> -o ./docs
+# Download incremental + pack delta automático
+```
+
+### Ambientes air-gapped
+Zero chamadas externas após o download. Sem telemetria. Manifest auditável.
+Ideal para RAG corporativo e ambientes regulados.
+
+---
+
+## Comandos
 
 ### `dograpper download`
 
@@ -76,9 +128,9 @@ dograpper download <url> -o <diretório> [opções]
 | `--include-extensions` | — | `html,md,txt` | Extensões permitidas (csv) |
 | `--manifest` | — | `.dograpper-manifest.json` | Caminho do arquivo de cache |
 
-**Detecção automática de SPA**: se o wget baixar apenas shells HTML vazios (típico de React/Next.js), o dograpper detecta isso automaticamente e refaz o download com playwright. Use `--headless` para pular direto para playwright quando já souber que o site é uma SPA.
+**Detecção automática de SPA**: se o wget capturar apenas shells HTML vazios (típico de React/Next.js), o dograpper detecta isso automaticamente e refaz o mirror com playwright. Use `--headless` para pular direto para playwright quando já souber que o site é uma SPA.
 
-**Downloads incrementais**: um arquivo de manifest é gerado após cada download, registrando os arquivos baixados. Re-execuções futuras podem usar esse manifest como referência.
+**Downloads incrementais**: um arquivo de manifest é gerado após cada download, registrando os arquivos espelhados. Re-execuções futuras usam esse manifest como referência.
 
 #### Exemplos
 
@@ -95,7 +147,7 @@ dograpper download https://docs.python.org/3/ -o ./python-docs -d 3 --include-ex
 
 ### `dograpper pack`
 
-Agrupa os arquivos baixados em chunks com contagem de palavras controlada.
+Processa e agrupa arquivos em chunks otimizados para ingestão por LLMs.
 
 ```bash
 dograpper pack <diretório_input> -o <diretório_output> [opções]
@@ -111,46 +163,42 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--ignore` | — | *(nenhum)* | Padrões de exclusão inline (repetível) |
 | `--prefix` | — | `docs_chunk_` | Prefixo dos arquivos gerados |
 | `--with-index` / `--no-index` | — | `--with-index` | Cabeçalho com índice de arquivos |
-| `--format` | — | `md` | Formato de saída: `txt`, `md`, `jsonl` (`xml` depreciado) |
+| `--format` | — | `md` | Formato de saída: `txt`, `md`, `jsonl` |
 | `--no-extract` | — | `false` | Desativa extração inteligente de conteúdo HTML |
 | `--show-tokens` | — | `false` | Exibe contagem de tokens no resumo final |
 | `--token-encoding` | — | `cl100k` | Encoding do tokenizer: `cl100k`, `o200k`, `p50k` |
-| `--dry-run` | — | `false` | Simula o pack sem escrever arquivos; exibe relatório de compressão e projeção |
+| `--dry-run` | — | `false` | Simula o pack sem escrever arquivos; exibe relatório |
 | `--dedup` | — | `off` | Deduplicação de blocos: `off`, `exact`, `fuzzy`, `both` |
 | `--dedup-threshold` | — | `3` | Distância de Hamming máxima para dedup fuzzy (0-10) |
-| `--context-header` | — | `false` | Injeta cabeçalho `dograpper-context-v1` (JSON estruturado) por arquivo no chunk |
-| `--cross-refs` | — | `false` | Gera `cross_refs.json` com referências cruzadas e anota chunks com ponteiros `[-> chunk_id]` |
+| `--context-header` | — | `false` | Injeta header `dograpper-context-v1` (JSON estruturado) |
+| `--cross-refs` | — | `false` | Gera `cross_refs.json` e anota chunks com `[-> chunk_id]` |
 | `--delta` | — | `false` | Reprocessa apenas arquivos alterados desde o último pack |
 | `--manifest` | — | `.dograpper-manifest.json` | Manifest do download para comparação delta |
-| `--bundle` | — | *(nenhum)* | Preset de empacotamento: `notebooklm` (≤50 chunks balanceados) ou `rag-standard` |
-| `--score` | — | `false` | Calcula LLM Readiness Score por chunk e gera `llm-readiness.json` |
+| `--bundle` | — | *(nenhum)* | Preset: `notebooklm` (≤50 chunks) ou `rag-standard` |
+| `--score` | — | `false` | Calcula LLM Readiness Score e gera `llm-readiness.json` |
 
-**Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
+**Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral.
 
-**Deduplicação** (`--dedup`): remove blocos de texto duplicados entre arquivos de documentação. Comum em sites que repetem headers, footers, disclaimers ou blocos de navegação em várias páginas. Três modos:
+**Deduplicação** (`--dedup`): remove blocos de texto duplicados entre arquivos. Comum em sites que repetem headers, footers, disclaimers ou blocos de navegação em várias páginas. Três modos:
 - `exact` — remove blocos idênticos (normalizado por case e whitespace) via hash MD5
 - `fuzzy` — remove blocos quase idênticos via SimHash + distância de Hamming (controlada por `--dedup-threshold`)
 - `both` — aplica exact primeiro, depois fuzzy nos blocos restantes
 
-Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em headings curtos. A primeira ocorrência (ordem alfabética de arquivo) é sempre preservada.
+Blocos com menos de 10 palavras são ignorados para evitar falsos positivos. A primeira ocorrência (ordem alfabética de arquivo) é sempre preservada.
 
-**Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe um relatório completo com contagem de arquivos, palavras (bruto vs. extraído vs. pós-dedup), projeção de chunks, top 10 arquivos por tamanho, e warnings de oversize. Útil para calibrar parâmetros antes de empacotar.
+**Cabeçalho de contexto** (`--context-header`): injeta metadados estruturados no formato `dograpper-context-v1` (JSON dentro de comentário HTML) no topo de cada arquivo dentro do chunk. Inclui: `source`, `breadcrumb` (hierarquia de headings), `chunk_index`/`total_chunks`, `word_count`, `url` (quando disponível via manifest) e `readiness_grade` (quando `--score` está ativo). Campos opcionais são omitidos em vez de nulls. Spec completa: [docs/schema-v1.md](docs/schema-v1.md).
 
-**Cabeçalho de contexto** (`--context-header`): injeta metadados estruturados no formato `dograpper-context-v1` (JSON dentro de comentário HTML `<!-- -->`) no topo de cada arquivo dentro do chunk. O cabeçalho inclui: `source` (caminho de origem), `breadcrumb` (hierarquia de headings h1 > h2 > h3 para HTMLs), `chunk_index`/`total_chunks`, `word_count`, `url` (quando disponível via manifest) e `readiness_grade` (quando `--score` está ativo). Campos opcionais são omitidos em vez de nulls. O cabeçalho é invisível quando renderizado como Markdown mas legível por LLMs. As palavras do cabeçalho não contam para o limite de `--max-words-per-chunk`.
+**Referências cruzadas** (`--cross-refs`): extrai links internos de arquivos HTML, resolve caminhos relativos, mapeia cada link para o chunk de destino e gera `cross_refs.json`. O JSON contém listas de `references_to`, `referenced_by` e `links` por chunk. O texto dos chunks é anotado in-place com marcadores `[-> chunk_id]`, permitindo que LLMs naveguem entre chunks.
 
-**Referências cruzadas** (`--cross-refs`): extrai links internos (`<a href="...">`) de arquivos HTML, resolve caminhos relativos, mapeia cada link para o chunk de destino e gera um arquivo `cross_refs.json` no diretório de saída. O JSON contém, para cada chunk, listas de `references_to` (chunks referenciados), `referenced_by` (chunks que referenciam este) e `links` (detalhes de cada link). Links para arquivos fora do pack são listados em `unresolved`. Além disso, o texto dos chunks é anotado in-place com marcadores `[-> chunk_id]` após a primeira ocorrência de cada link text, permitindo que LLMs naveguem entre chunks.
+**Formato JSONL** (`--format jsonl`): gera um arquivo `.jsonl` por chunk, onde cada linha é um objeto JSON representando um arquivo ou sub-chunk. Campos: `id`, `source`, `words`, `content`, `schema_version` (`"v1"`), e opcionais: `breadcrumb`, `chunk_index`, `total_chunks`, `url`, `readiness_grade`. Ideal para pipelines RAG.
 
-**Formato JSONL** (`--format jsonl`): gera um arquivo `.jsonl` por chunk, onde cada linha é um objeto JSON representando um arquivo (ou sub-chunk). Campos: `id`, `source`, `words`, `content`, `schema_version` (`"v1"`), e opcionais: `breadcrumb`, `chunk_index`, `total_chunks`, `url`, `readiness_grade`. Ideal para pipelines RAG que consomem documentos estruturados.
+**LLM Readiness Score** (`--score`): calcula uma pontuação de qualidade por chunk baseada em três métricas: `noise_ratio` (40%), `boundary_integrity` (30%), `context_depth` (30%). O score final gera um grade: A (≥0.8), B (≥0.6), C (<0.6). Resultados são salvos em `llm-readiness.json`. Quando combinado com `--context-header` ou `--format jsonl`, o grade é injetado nos cabeçalhos/registros.
 
-**Formato XML depreciado**: o formato `--format xml` foi removido. Usar `xml` resulta em erro com mensagem orientando a migrar para `jsonl`.
-
-**LLM Readiness Score** (`--score`): calcula uma pontuação de qualidade por chunk baseada em três métricas: `noise_ratio` (40% — proporção de ruído vs. conteúdo útil), `boundary_integrity` (30% — se o chunk começa/termina em limites lógicos de seção), `context_depth` (30% — presença de headings, breadcrumbs, marcadores de contexto). O score final gera um grade: A (≥0.8), B (≥0.6), C (<0.6). Resultados são salvos em `llm-readiness.json` no diretório de saída. Quando combinado com `--context-header` ou `--format jsonl`, o grade é injetado diretamente nos cabeçalhos/registros.
+**Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe relatório completo com contagem de arquivos, palavras, projeção de chunks, top 10 arquivos por tamanho, e warnings.
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
-**Estratégia `semantic`**: agrupa arquivos do mesmo diretório (módulo) no mesmo chunk antes de aplicar o limite de palavras. Preserva a coesão temática da documentação. Grupos que excedem o limite são subdivididos automaticamente.
-
-**Cabeçalho de chunk** (com `--with-index`): cada chunk inclui um índice dos arquivos que contém, com contagem de palavras individual.
+**Estratégia `semantic`**: agrupa arquivos do mesmo diretório (módulo) no mesmo chunk antes de aplicar o limite de palavras. Preserva a coesão temática. Grupos que excedem o limite são subdivididos automaticamente.
 
 #### Exemplos
 
@@ -158,59 +206,31 @@ Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em h
 # Pack básico com defaults
 dograpper pack ./rust-docs -o ./chunks
 
-# Limites mais apertados
-dograpper pack ./rust-docs -o ./chunks --max-words-per-chunk 300000 --max-chunks 30
+# Otimizado para NotebookLM
+dograpper pack ./docs -o ./chunks --bundle notebooklm --context-header --score
 
-# Agrupar por módulo, filtrar imagens e 404
-dograpper pack ./rust-docs -o ./chunks \
-  --strategy semantic \
-  --ignore "*.png" \
-  --ignore "**/404.html"
+# JSONL para RAG com cross-references
+dograpper pack ./docs -o ./chunks --format jsonl --cross-refs --score
 
-# Sem cabeçalho, formato txt
-dograpper pack ./rust-docs -o ./chunks --no-index --format txt
+# Deduplicação completa + contexto + tokens
+dograpper pack ./docs -o ./chunks --dedup both --context-header --show-tokens
 
-# Sem extração inteligente (HTML integral)
-dograpper pack ./rust-docs -o ./chunks --no-extract
+# Dry-run para calibrar parâmetros
+dograpper pack ./docs -o ./chunks --dry-run --dedup both --score --show-tokens
 
-# Com contagem de tokens no resumo
-dograpper pack ./rust-docs -o ./chunks --show-tokens
+# Agrupar por módulo, filtrar imagens
+dograpper pack ./docs -o ./chunks --strategy semantic --ignore "*.png"
 
-# Tokens com encoding específico (GPT-4o)
-dograpper pack ./rust-docs -o ./chunks --show-tokens --token-encoding o200k
+# Updates incrementais (delta)
+dograpper pack ./docs -o ./chunks --delta
+```
 
-# Simulação sem escrever arquivos (dry-run)
-dograpper pack ./rust-docs -o ./chunks --dry-run
+### `dograpper sync`
 
-# Deduplicação exata (remove blocos repetidos entre páginas)
-dograpper pack ./rust-docs -o ./chunks --dedup exact
+Wrapper de conveniência: `download` + `pack --delta` em cadeia.
 
-# Deduplicação completa (exact + fuzzy) com threshold conservador
-dograpper pack ./rust-docs -o ./chunks --dedup both --dedup-threshold 2
-
-# Dry-run com dedup e tokens para calibrar parâmetros
-dograpper pack ./rust-docs -o ./chunks --dedup both --show-tokens --dry-run
-
-# Com cabeçalho de contexto (breadcrumb de headings por arquivo)
-dograpper pack ./rust-docs -o ./chunks --context-header
-
-# Combo: dedup + contexto + tokens
-dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --show-tokens
-
-# Referências cruzadas entre chunks
-dograpper pack ./rust-docs -o ./chunks --cross-refs
-
-# Formato JSONL para pipelines RAG
-dograpper pack ./rust-docs -o ./chunks --format jsonl
-
-# LLM Readiness Score por chunk
-dograpper pack ./rust-docs -o ./chunks --score
-
-# JSONL com contexto e score (grade injetado em cada registro)
-dograpper pack ./rust-docs -o ./chunks --format jsonl --context-header --score
-
-# Combo completo: dedup + contexto + cross-refs + score + tokens
-dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --cross-refs --score --show-tokens
+```bash
+dograpper sync <url> -o <dir> [--chunks-dir <dir>] [--max-words-per-chunk N] [--format md|jsonl]
 ```
 
 ### Flags globais
@@ -222,6 +242,39 @@ dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --cross-ref
 | `--config` | — | `.dograpper.json` | Arquivo de configuração |
 
 `--verbose` e `--quiet` são mutuamente exclusivos.
+
+---
+
+## Schema: `dograpper-context-v1`
+
+Cada chunk inclui um header JSON estruturado e versionado (quando `--context-header` ativo):
+
+```html
+<!-- dograpper-context-v1
+{
+  "source": "flask.palletsprojects.com/en/stable/quickstart/index.html",
+  "context_breadcrumb": ["Quickstart", "Routing"],
+  "word_count": 4820,
+  "llm_readiness": {"score": 0.92, "grade": "A"},
+  "schema_version": "v1"
+}
+-->
+```
+
+Spec completa: [docs/schema-v1.md](docs/schema-v1.md)
+
+---
+
+## Artefatos gerados
+
+| Artefato | Flag | Descrição |
+|----------|------|-----------|
+| `docs_chunk_*.md` | (default) | Chunks em Markdown |
+| `docs_chunk_*.jsonl` | `--format jsonl` | Uma linha JSON por source file |
+| `cross_refs.json` | `--cross-refs` | Grafo de referências entre chunks |
+| `llm-readiness.json` | `--score` | Scores de qualidade por chunk |
+| `IMPORT_GUIDE.md` | `--bundle` | Guia de upload com ordem recomendada |
+| `delta_manifest.json` | `--delta` | Mapeamento de arquivos alterados |
 
 ---
 
@@ -241,7 +294,10 @@ Crie um arquivo `.dograpper.json` na raiz do projeto para evitar repetir flags:
     "max-chunks": 50,
     "strategy": "semantic",
     "format": "md",
-    "with-index": true
+    "with-index": true,
+    "context-header": true,
+    "score": true,
+    "dedup": "both"
   }
 }
 ```
@@ -325,33 +381,6 @@ Com `--score`, linhas adicionais são exibidas:
   Grade distribution: A: 3, B: 2
 ```
 
-Com `--dry-run`, nenhum arquivo é escrito. Um relatório completo é exibido:
-
-```
-Dry-run report (nenhum arquivo foi escrito):
-───────────────────────────────────────────────────────
-
-  Arquivos encontrados:  47
-  Arquivos excluídos:    12
-  Arquivos processados:  35
-
-  Palavras (bruto):      52,000
-  Palavras (extraído):   41,500
-  Redução por extração:  20%
-
-  Estratégia:            size
-  Limite por chunk:      500,000 palavras
-  Chunks projetados:     1 / 50 (max)
-
-  Top 10 arquivos por palavras (após extração):
-  ─────────────────────────────────────────────────────
-   1. api/index.html                            9,634 words  (-27%)
-   ...
-
-───────────────────────────────────────────────────────
-Ajuste parâmetros e rode sem --dry-run para empacotar.
-```
-
 Warnings são exibidos quando:
 - Um arquivo individual excede `--max-words-per-chunk` (é colocado sozinho em um chunk)
 - O total de chunks excede `--max-chunks`
@@ -362,30 +391,30 @@ Warnings são exibidos quando:
 
 ```
 src/dograpper/
-├── cli.py                  # Entry point, grupo click, flags globais
+├── cli.py
 ├── commands/
-│   ├── download.py         # Orquestração do download
-│   ├── pack.py             # Orquestração do pack
-│   └── sync.py             # Subcomando sync (download + pack em um passo)
+│   ├── download.py
+│   ├── pack.py
+│   └── sync.py              # Orquestração download + pack delta
 ├── lib/
-│   ├── chunker.py          # Estratégias de chunking e escrita de chunks (md, txt, jsonl)
-│   ├── config_loader.py    # Merge de configuração com precedência
-│   ├── ignore_parser.py    # Filtro de arquivos (usa pathspec)
-│   ├── manifest.py         # Leitura/escrita de manifest JSON
-│   ├── playwright_crawl.py # Crawler headless para SPAs
-│   ├── spa_detector.py     # Heurística de detecção de SPA
-│   └── wget_mirror.py      # Wrapper do wget --mirror
+│   ├── chunker.py            # Estratégias size/semantic, boundary-aware, balance
+│   ├── config_loader.py
+│   ├── ignore_parser.py
+│   ├── manifest.py           # Manifest + diff_manifests()
+│   ├── playwright_crawl.py
+│   ├── spa_detector.py
+│   └── wget_mirror.py
 └── utils/
-    ├── content_extractor.py # Extração inteligente de conteúdo HTML (remove boilerplate)
-    ├── dedup.py            # Deduplicação cross-file (exact MD5 + fuzzy SimHash)
-    ├── dry_run_report.py   # Relatório de simulação do pack (--dry-run)
-    ├── heading_extractor.py # Extração de headings HTML e cabeçalho dograpper-context-v1
-    ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
-    ├── link_extractor.py   # Extração de links internos e referências cruzadas entre chunks
-    ├── logger.py           # Setup de logging
-    ├── scorer.py           # LLM Readiness Score (noise_ratio, boundary, context_depth)
-    ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)
-    └── word_counter.py     # Contagem de palavras
+    ├── content_extractor.py  # Extração inteligente (remove boilerplate)
+    ├── dedup.py              # Dedup cross-file (exact + fuzzy)
+    ├── dry_run_report.py
+    ├── heading_extractor.py  # Headings + format_context_header (v1 schema)
+    ├── html_stripper.py
+    ├── link_extractor.py     # Cross-refs entre chunks
+    ├── logger.py
+    ├── scorer.py             # LLM Readiness Score
+    ├── token_counter.py
+    └── word_counter.py
 ```
 
 ---

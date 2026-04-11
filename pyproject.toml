@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dograpper"
-version = "0.1.0"
-description = "CLI to download and pack documentation for NotebookLM"
+version = "0.2.0"
+description = "Context engineering pipeline for deterministic LLM ingestion"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1",

@@ -1,11 +1,13 @@
-<!-- TODO: Mover esse arquivo para a raiz do projeto depois de terminar as implementações! -->
-
-
 # dograpper — Contexto do Projeto
 
 ## Visão geral
 
-CLI em Python que baixa documentações técnicas inteiras (Kubernetes, Rust, AWS, etc.) e empacota em chunks prontos para importar no Google NotebookLM. Resolve o problema de documentações que excedem os limites do NotebookLM (máximo de palavras por fonte e máximo de fontes por notebook). Dois subcomandos: `download` (espelha site via wget/playwright) e `pack` (agrupa arquivos em chunks por contagem de palavras).
+CLI em Python que implementa uma pipeline de engenharia de contexto
+determinístico para ingestão em LLMs estáticos. Transforma documentação
+HTML em contexto estruturado, dedupicado, pontuado e versionado — pronto
+para NotebookLM, RAG pipelines, Claude Projects e fine-tuning. Três
+subcomandos: `download` (espelha site via wget/playwright), `pack`
+(processa e agrupa em chunks otimizados) e `sync` (download + pack delta).
 
 ## Stack técnica
 
@@ -99,6 +101,9 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `tests/test_scorer.py` | Antes de alterar `utils/scorer.py` ou a lógica de score em `commands/pack.py` |
 | `tests/test_context_v1.py` | Antes de alterar o formato `dograpper-context-v1` em `utils/heading_extractor.py` |
 | `tests/test_jsonl_format.py` | Antes de alterar a escrita JSONL em `lib/chunker.py` |
+| `tests/test_delta_manifest.py` | Antes de alterar `lib/manifest.py` ou lógica de `--delta` |
+| `tests/test_bundle_notebooklm.py` | Antes de alterar lógica de `--bundle` |
+| `tests/test_boundary_chunking.py` | Antes de alterar `_split_text_by_words` |
 | `docs/schema-v1.md` | Referência do schema `dograpper-context-v1` — manter sincronizado com `heading_extractor.py` e `chunker.py` |
 
 ## Regras críticas
@@ -197,4 +202,16 @@ uv run pytest tests/test_context_v1.py -v
 
 # Rodar testes do formato JSONL
 uv run pytest tests/test_jsonl_format.py -v
+
+# Pack com bundle NotebookLM
+uv run dograpper pack ./test-docs -o ./chunks --bundle notebooklm --context-header --score
+
+# Pack JSONL para RAG
+uv run dograpper pack ./test-docs -o ./chunks --format jsonl --cross-refs
+
+# Pack delta (apenas mudanças)
+uv run dograpper pack ./test-docs -o ./chunks --delta
+
+# Sync (download + pack delta)
+uv run dograpper sync https://click.palletsprojects.com/en/stable/ -o ./test-docs
 ```

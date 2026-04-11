@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
     epilog=(
         "\b\n"
         "Exemplos:\n"
-        "  dograpper pack ./rust-docs -o ./chunks\n"
-        "  dograpper pack ./rust-docs -o ./chunks --strategy semantic --max-words-per-chunk 300000\n"
-        "  dograpper pack ./docs -o ./chunks --ignore '*.png' --ignore '**/404.html'\n"
-        "  dograpper pack ./docs -o ./chunks --format xml --no-index\n"
+        "  dograpper pack ./docs -o ./chunks\n"
+        "  dograpper pack ./docs -o ./chunks --strategy semantic --max-words-per-chunk 300000\n"
+        "  dograpper pack ./docs -o ./chunks --bundle notebooklm --context-header --score\n"
+        "  dograpper pack ./docs -o ./chunks --format jsonl --cross-refs --score\n"
     )
 )
 @click.argument('input_dir', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True)
@@ -77,19 +77,21 @@ logger = logging.getLogger(__name__)
                    "Gera llm-readiness.json no output.")
 @click.pass_context
 def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool, delta: bool, manifest: str, bundle: str, score: bool):
-    """Agrega arquivos baixados em chunks com contagem de palavras controlada.
+    """Processa e agrupa arquivos em chunks otimizados para ingestão por LLMs.
 
-    Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
-    `--ignore`), e gera arquivos sequenciais `docs_chunk_NN.<fmt>` no
-    diretório de saída. Cada chunk tem um cabeçalho opcional listando os
-    arquivos que contém (controlado por `--with-index/--no-index`).
+    Percorre INPUT_DIR, extrai conteúdo principal, remove boilerplate
+    e duplicação, pontua qualidade, e gera chunks estruturados com
+    metadados de contexto no formato dograpper-context-v1.
 
     \b
     Estratégias de agrupamento:
-      size      Empacota por contagem de palavras pura, em ordem alfabética.
-      semantic  Agrupa arquivos do mesmo diretório antes de aplicar o
-                limite de palavras, preservando coesão temática. Grupos
-                que excedem o limite são subdivididos automaticamente.
+      size      Empacota por contagem de palavras pura, ordem alfabética.
+      semantic  Agrupa por diretório, preservando coesão temática.
+
+    \b
+    Presets de empacotamento (--bundle):
+      notebooklm   ≤50 chunks balanceados + IMPORT_GUIDE.md
+      rag-standard  Sem restrições, com guia de mapeamento
 
     Se um único arquivo exceder `--max-words-per-chunk`, ele é colocado
     sozinho em um chunk e um warning é emitido (o CLI não falha).
