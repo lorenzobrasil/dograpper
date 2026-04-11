@@ -1,6 +1,6 @@
 import os
 import tempfile
-import xml.etree.ElementTree as ET
+import pytest
 from click.testing import CliRunner
 
 from dograpper.utils.word_counter import count_words, count_words_file
@@ -179,54 +179,14 @@ def test_write_chunks_strips_html():
             assert "word anword" in content
             assert "<p>" not in content
 
-def test_write_chunks_xml_format():
-    with tempfile.TemporaryDirectory() as d:
-        out_dir = os.path.join(d, 'out')
-        files = create_mock_files(d, [("a.md", 5), ("b.md", 5)])
-        chunks = chunk_by_size(files, d, 20)
-        
-        write_chunks(chunks, d, out_dir, "ck_", "xml", True, 1)
-        
-        out_file = os.path.join(out_dir, "ck_01.xml")
-        assert os.path.exists(out_file)
-        
-        tree = ET.parse(out_file)
-        root = tree.getroot()
-        assert root.tag == "chunk"
-        assert root.attrib["index"] == "1"
-        
-        meta = root.find("meta")
-        assert meta is not None
-        assert meta.find("file_count").text == "2"
-        
-        sources = root.find("sources")
-        assert len(sources.findall("source")) == 2
-
-def test_write_chunks_xml_no_index():
+def test_xml_format_deprecated():
+    """--format xml raises deprecation error."""
     with tempfile.TemporaryDirectory() as d:
         out_dir = os.path.join(d, 'out')
         files = create_mock_files(d, [("a.md", 5)])
-        chunks = chunk_by_size(files, d, 10)
-        
-        write_chunks(chunks, d, out_dir, "ck_", "xml", False, 1)
-        tree = ET.parse(os.path.join(out_dir, "ck_01.xml"))
-        root = tree.getroot()
-        assert root.find("meta") is None
-
-def test_write_chunks_xml_cdata_escape():
-    with tempfile.TemporaryDirectory() as d:
-        out_dir = os.path.join(d, 'out')
-        files = create_mock_files(d, [("a.md", 5)])
-        
-        with open(files[0], 'w') as f:
-            f.write("content ]]> here")
-            
         chunks = chunk_by_size(files, d, 20)
-        write_chunks(chunks, d, out_dir, "ck_", "xml", False, 1)
-        
-        with open(os.path.join(out_dir, "ck_01.xml"), 'r') as f:
-            content = f.read()
-            assert "]]]]><![CDATA[>" in content
+        with pytest.raises(ValueError, match="deprecated"):
+            write_chunks(chunks, d, out_dir, "ck_", "xml", True, 1)
 
 # --- CLI Integration ---
 

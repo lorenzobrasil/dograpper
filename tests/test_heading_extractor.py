@@ -197,6 +197,12 @@ class TestGetActiveHeadings:
 
 class TestFormatContextHeader:
 
+    def _parse_v1(self, header):
+        """Extract and parse JSON from a dograpper-context-v1 header."""
+        import json
+        json_str = header.split("<!-- dograpper-context-v1\n")[1].split("\n-->")[0]
+        return json.loads(json_str)
+
     def test_full_header(self):
         headings = [
             Heading(level=1, text="Guide", char_offset=0),
@@ -208,10 +214,14 @@ class TestFormatContextHeader:
             chunk_index=2,
             total_chunks=5,
         )
-        assert "<!-- source: docs/guide/install.html -->" in header
-        assert "<!-- context: Guide > Installation -->" in header
-        assert "<!-- chunk: 2/5 -->" in header
+        assert "<!-- dograpper-context-v1" in header
         assert header.endswith("\n\n")
+        data = self._parse_v1(header)
+        assert data["source"] == "docs/guide/install.html"
+        assert data["context_breadcrumb"] == ["Guide", "Installation"]
+        assert data["chunk_index"] == 2
+        assert data["total_chunks"] == 5
+        assert data["schema_version"] == "v1"
 
     def test_single_chunk_no_position(self):
         header = format_context_header(
@@ -220,25 +230,29 @@ class TestFormatContextHeader:
             chunk_index=1,
             total_chunks=1,
         )
-        assert "<!-- source:" in header
-        assert "<!-- context:" in header
-        assert "chunk:" not in header
+        data = self._parse_v1(header)
+        assert data["source"] == "doc.html"
+        assert data["context_breadcrumb"] == ["Title"]
+        assert "chunk_index" not in data
+        assert "total_chunks" not in data
 
     def test_no_headings(self):
         header = format_context_header(
             active_headings=[],
             source_path="genindex.html",
         )
-        assert "<!-- source: genindex.html -->" in header
-        assert "context:" not in header
+        data = self._parse_v1(header)
+        assert data["source"] == "genindex.html"
+        assert "context_breadcrumb" not in data
 
     def test_no_source_path(self):
         header = format_context_header(
             active_headings=[Heading(1, "Title", 0)],
             source_path="",
         )
-        assert "source:" not in header
-        assert "<!-- context: Title -->" in header
+        data = self._parse_v1(header)
+        assert "source" not in data
+        assert data["context_breadcrumb"] == ["Title"]
 
     def test_empty_returns_empty(self):
         header = format_context_header(
@@ -255,12 +269,14 @@ class TestFormatContextHeader:
             Heading(4, "OAuth2", 150),
         ]
         header = format_context_header(active_headings=headings)
-        assert "Docs > API > Auth > OAuth2" in header
+        data = self._parse_v1(header)
+        assert data["context_breadcrumb"] == ["Docs", "API", "Auth", "OAuth2"]
 
     def test_unicode_in_headings(self):
         headings = [Heading(1, "Configuração", 0), Heading(2, "Opções básicas", 50)]
         header = format_context_header(active_headings=headings, source_path="config.html")
-        assert "Configuração > Opções básicas" in header
+        data = self._parse_v1(header)
+        assert data["context_breadcrumb"] == ["Configuração", "Opções básicas"]
 
 
 # ---------------------------------------------------------------------------
@@ -300,8 +316,8 @@ class TestContextHeaderCLI:
             assert len(chunks) >= 1
             with open(os.path.join(output_dir, chunks[0])) as f:
                 content = f.read()
-            assert "<!-- source:" in content
-            assert "<!-- context:" in content
+            assert "dograpper-context-v1" in content
+            assert '"source"' in content
 
     def test_without_context_header_no_injection(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -317,7 +333,7 @@ class TestContextHeaderCLI:
             chunks = os.listdir(output_dir)
             with open(os.path.join(output_dir, chunks[0])) as f:
                 content = f.read()
-            assert "<!-- source:" not in content
+            assert "dograpper-context-v1" not in content
 
     def test_context_header_contains_breadcrumb(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -334,7 +350,7 @@ class TestContextHeaderCLI:
             with open(os.path.join(output_dir, chunks[0])) as f:
                 content = f.read()
             assert "User Guide" in content
-            assert "<!-- context:" in content
+            assert "dograpper-context-v1" in content
 
     def test_context_header_with_txt_format(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -351,9 +367,9 @@ class TestContextHeaderCLI:
             assert len(chunks) >= 1
             with open(os.path.join(output_dir, chunks[0])) as f:
                 content = f.read()
-            assert "<!-- source:" in content
+            assert "dograpper-context-v1" in content
 
-    def test_context_header_with_xml_format(self):
+    def test_xml_format_deprecated(self):
         with tempfile.TemporaryDirectory() as tmp:
             input_dir = self._create_html_files(tmp)
             output_dir = os.path.join(tmp, "output")
@@ -363,12 +379,8 @@ class TestContextHeaderCLI:
                 input_dir, "-o", output_dir, "--context-header", "--format", "xml",
             ])
 
-            assert result.exit_code == 0
-            chunks = [f for f in os.listdir(output_dir) if f.endswith('.xml')]
-            assert len(chunks) >= 1
-            with open(os.path.join(output_dir, chunks[0])) as f:
-                content = f.read()
-            assert 'context="' in content
+            assert result.exit_code != 0
+            assert "deprecated" in result.output.lower() or "deprecated" in str(result.exception).lower()
 
     def test_non_html_file_source_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -387,8 +399,9 @@ class TestContextHeaderCLI:
             chunks = os.listdir(output_dir)
             with open(os.path.join(output_dir, chunks[0])) as f:
                 content = f.read()
-            assert "<!-- source: readme.txt -->" in content
-            assert "<!-- context:" not in content
+            assert "dograpper-context-v1" in content
+            assert '"source": "readme.txt"' in content
+            assert "context_breadcrumb" not in content
 
     def test_regression_pack_without_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -407,7 +420,7 @@ class TestContextHeaderCLI:
             for chunk_name in chunks:
                 with open(os.path.join(output_dir, chunk_name)) as f:
                     content = f.read()
-                assert "<!-- source:" not in content
+                assert "dograpper-context-v1" not in content
 
     def test_context_header_with_dedup(self):
         with tempfile.TemporaryDirectory() as tmp:

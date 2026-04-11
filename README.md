@@ -111,15 +111,19 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--ignore` | — | *(nenhum)* | Padrões de exclusão inline (repetível) |
 | `--prefix` | — | `docs_chunk_` | Prefixo dos arquivos gerados |
 | `--with-index` / `--no-index` | — | `--with-index` | Cabeçalho com índice de arquivos |
-| `--format` | — | `md` | Formato de saída: `txt`, `md`, `xml` |
+| `--format` | — | `md` | Formato de saída: `txt`, `md`, `jsonl` (`xml` depreciado) |
 | `--no-extract` | — | `false` | Desativa extração inteligente de conteúdo HTML |
 | `--show-tokens` | — | `false` | Exibe contagem de tokens no resumo final |
 | `--token-encoding` | — | `cl100k` | Encoding do tokenizer: `cl100k`, `o200k`, `p50k` |
 | `--dry-run` | — | `false` | Simula o pack sem escrever arquivos; exibe relatório de compressão e projeção |
 | `--dedup` | — | `off` | Deduplicação de blocos: `off`, `exact`, `fuzzy`, `both` |
 | `--dedup-threshold` | — | `3` | Distância de Hamming máxima para dedup fuzzy (0-10) |
-| `--context-header` | — | `false` | Injeta cabeçalho de contexto (source + breadcrumb de headings) por arquivo no chunk |
+| `--context-header` | — | `false` | Injeta cabeçalho `dograpper-context-v1` (JSON estruturado) por arquivo no chunk |
 | `--cross-refs` | — | `false` | Gera `cross_refs.json` com referências cruzadas e anota chunks com ponteiros `[-> chunk_id]` |
+| `--delta` | — | `false` | Reprocessa apenas arquivos alterados desde o último pack |
+| `--manifest` | — | `.dograpper-manifest.json` | Manifest do download para comparação delta |
+| `--bundle` | — | *(nenhum)* | Preset de empacotamento: `notebooklm` (≤50 chunks balanceados) ou `rag-standard` |
+| `--score` | — | `false` | Calcula LLM Readiness Score por chunk e gera `llm-readiness.json` |
 
 **Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
 
@@ -132,9 +136,15 @@ Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em h
 
 **Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe um relatório completo com contagem de arquivos, palavras (bruto vs. extraído vs. pós-dedup), projeção de chunks, top 10 arquivos por tamanho, e warnings de oversize. Útil para calibrar parâmetros antes de empacotar.
 
-**Cabeçalho de contexto** (`--context-header`): injeta metadados de origem no topo de cada arquivo dentro do chunk, ancorando o conteúdo na estrutura da documentação original. Para arquivos HTML, extrai a hierarquia de headings (h1 > h2 > h3) e formata como breadcrumb. Para arquivos não-HTML, inclui apenas o caminho de origem. O cabeçalho usa comentários HTML (`<!-- -->`) que são invisíveis quando renderizados como Markdown mas legíveis por LLMs. As palavras do cabeçalho não contam para o limite de `--max-words-per-chunk`.
+**Cabeçalho de contexto** (`--context-header`): injeta metadados estruturados no formato `dograpper-context-v1` (JSON dentro de comentário HTML `<!-- -->`) no topo de cada arquivo dentro do chunk. O cabeçalho inclui: `source` (caminho de origem), `breadcrumb` (hierarquia de headings h1 > h2 > h3 para HTMLs), `chunk_index`/`total_chunks`, `word_count`, `url` (quando disponível via manifest) e `readiness_grade` (quando `--score` está ativo). Campos opcionais são omitidos em vez de nulls. O cabeçalho é invisível quando renderizado como Markdown mas legível por LLMs. As palavras do cabeçalho não contam para o limite de `--max-words-per-chunk`.
 
 **Referências cruzadas** (`--cross-refs`): extrai links internos (`<a href="...">`) de arquivos HTML, resolve caminhos relativos, mapeia cada link para o chunk de destino e gera um arquivo `cross_refs.json` no diretório de saída. O JSON contém, para cada chunk, listas de `references_to` (chunks referenciados), `referenced_by` (chunks que referenciam este) e `links` (detalhes de cada link). Links para arquivos fora do pack são listados em `unresolved`. Além disso, o texto dos chunks é anotado in-place com marcadores `[-> chunk_id]` após a primeira ocorrência de cada link text, permitindo que LLMs naveguem entre chunks.
+
+**Formato JSONL** (`--format jsonl`): gera um arquivo `.jsonl` por chunk, onde cada linha é um objeto JSON representando um arquivo (ou sub-chunk). Campos: `id`, `source`, `words`, `content`, `schema_version` (`"v1"`), e opcionais: `breadcrumb`, `chunk_index`, `total_chunks`, `url`, `readiness_grade`. Ideal para pipelines RAG que consomem documentos estruturados.
+
+**Formato XML depreciado**: o formato `--format xml` foi removido. Usar `xml` resulta em erro com mensagem orientando a migrar para `jsonl`.
+
+**LLM Readiness Score** (`--score`): calcula uma pontuação de qualidade por chunk baseada em três métricas: `noise_ratio` (40% — proporção de ruído vs. conteúdo útil), `boundary_integrity` (30% — se o chunk começa/termina em limites lógicos de seção), `context_depth` (30% — presença de headings, breadcrumbs, marcadores de contexto). O score final gera um grade: A (≥0.8), B (≥0.6), C (<0.6). Resultados são salvos em `llm-readiness.json` no diretório de saída. Quando combinado com `--context-header` ou `--format jsonl`, o grade é injetado diretamente nos cabeçalhos/registros.
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
@@ -190,8 +200,17 @@ dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --show-toke
 # Referências cruzadas entre chunks
 dograpper pack ./rust-docs -o ./chunks --cross-refs
 
-# Combo completo: dedup + contexto + cross-refs + tokens
-dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --cross-refs --show-tokens
+# Formato JSONL para pipelines RAG
+dograpper pack ./rust-docs -o ./chunks --format jsonl
+
+# LLM Readiness Score por chunk
+dograpper pack ./rust-docs -o ./chunks --score
+
+# JSONL com contexto e score (grade injetado em cada registro)
+dograpper pack ./rust-docs -o ./chunks --format jsonl --context-header --score
+
+# Combo completo: dedup + contexto + cross-refs + score + tokens
+dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --cross-refs --score --show-tokens
 ```
 
 ### Flags globais
@@ -299,6 +318,13 @@ Com `--cross-refs`, uma linha adicional é exibida:
   Cross-refs:        ./chunks/cross_refs.json (42 links, 3 unresolved)
 ```
 
+Com `--score`, linhas adicionais são exibidas:
+
+```
+  LLM Readiness:     ./chunks/llm-readiness.json
+  Grade distribution: A: 3, B: 2
+```
+
 Com `--dry-run`, nenhum arquivo é escrito. Um relatório completo é exibido:
 
 ```
@@ -339,9 +365,10 @@ src/dograpper/
 ├── cli.py                  # Entry point, grupo click, flags globais
 ├── commands/
 │   ├── download.py         # Orquestração do download
-│   └── pack.py             # Orquestração do pack
+│   ├── pack.py             # Orquestração do pack
+│   └── sync.py             # Subcomando sync (download + pack em um passo)
 ├── lib/
-│   ├── chunker.py          # Estratégias de chunking e escrita de chunks
+│   ├── chunker.py          # Estratégias de chunking e escrita de chunks (md, txt, jsonl)
 │   ├── config_loader.py    # Merge de configuração com precedência
 │   ├── ignore_parser.py    # Filtro de arquivos (usa pathspec)
 │   ├── manifest.py         # Leitura/escrita de manifest JSON
@@ -352,10 +379,11 @@ src/dograpper/
     ├── content_extractor.py # Extração inteligente de conteúdo HTML (remove boilerplate)
     ├── dedup.py            # Deduplicação cross-file (exact MD5 + fuzzy SimHash)
     ├── dry_run_report.py   # Relatório de simulação do pack (--dry-run)
-    ├── heading_extractor.py # Extração de headings HTML para cabeçalho de contexto
+    ├── heading_extractor.py # Extração de headings HTML e cabeçalho dograpper-context-v1
     ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
     ├── link_extractor.py   # Extração de links internos e referências cruzadas entre chunks
     ├── logger.py           # Setup de logging
+    ├── scorer.py           # LLM Readiness Score (noise_ratio, boundary, context_depth)
     ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)
     └── word_counter.py     # Contagem de palavras
 ```

@@ -25,9 +25,10 @@ src/dograpper/
 ├── cli.py                  # Entry point click, flags globais (--verbose, --quiet, --config)
 ├── commands/
 │   ├── download.py         # Orquestração: wget → SPA detection → fallback playwright → manifest
-│   └── pack.py             # Orquestração: list files → filter → chunk → write → summary
+│   ├── pack.py             # Orquestração: list files → filter → chunk → write → summary
+│   └── sync.py             # Subcomando sync (download + pack em um passo)
 ├── lib/
-│   ├── chunker.py          # Estratégias size e semantic, dataclasses Chunk/ChunkFile, write_chunks()
+│   ├── chunker.py          # Estratégias size e semantic, dataclasses Chunk/ChunkFile, write_chunks() (md, txt, jsonl)
 │   ├── config_loader.py    # Merge com precedência: defaults < JSON < CLI (usa ctx.get_parameter_source)
 │   ├── ignore_parser.py    # filter_files() com pathspec
 │   ├── manifest.py         # Dataclasses Manifest/ManifestEntry, load/save/build
@@ -38,23 +39,30 @@ src/dograpper/
     ├── content_extractor.py # extract_content() — extração inteligente de HTML (semantic containers, density scoring, blacklist)
     ├── dedup.py            # deduplicate() — dedup cross-file via MD5 (exact) e SimHash (fuzzy)
     ├── dry_run_report.py   # generate_report() — relatório formatado para --dry-run
-    ├── heading_extractor.py # extract_with_headings(), get_active_headings(), format_context_header()
+    ├── heading_extractor.py # extract_with_headings(), get_active_headings(), format_context_header() — formato dograpper-context-v1
     ├── html_stripper.py    # strip_html() via html.parser, descarta script/style, emite \n\n entre blocos HTML
     ├── link_extractor.py   # extract_links(), build_cross_ref_index(), annotate_cross_refs()
     ├── logger.py           # setup_logger() com suporte a verbose/quiet
+    ├── scorer.py           # LLM Readiness Score: noise_ratio, boundary_integrity, context_depth → grade A/B/C
     ├── token_counter.py    # count_tokens() — tiktoken opcional, fallback estimativa palavras→tokens
     └── word_counter.py     # count_words() e count_words_file()
 tests/
+├── test_boundary_chunking.py # Boundary-aware chunking: preservação de blocos estruturais
+├── test_bundle_notebooklm.py # Bundle presets: notebooklm, rag-standard
 ├── test_cli_smoke.py       # Help, flags obrigatórias, mutual exclusion
 ├── test_config.py          # Precedência, JSON inválido, arquivo ausente
 ├── test_content_extractor.py # Extração inteligente: semantic, density, blacklist, edge cases, CLI
+├── test_context_v1.py      # Formato dograpper-context-v1: JSON header, campos opcionais, schema
 ├── test_dedup.py           # Dedup: _split_blocks, _simhash, _hamming_distance, exact/fuzzy/both, CLI
-├── test_heading_extractor.py # Heading extraction, active headings, context header, CLI integration
-├── test_link_extractor.py  # Link extraction, cross-ref index, annotation, CLI integration
+├── test_delta_manifest.py  # Delta pack: reprocessamento incremental via manifest
 ├── test_download.py        # wget mock, SPA detector, manifest roundtrip
 ├── test_dry_run.py         # Dry-run: report generation, CLI integration, edge cases
 ├── test_e2e.py             # Integração ponta-a-ponta usando ./test-docs
+├── test_heading_extractor.py # Heading extraction, active headings, context header v1, CLI integration
+├── test_jsonl_format.py    # JSONL format: criação, validação JSON, word count, multi-chunk, CLI
+├── test_link_extractor.py  # Link extraction, cross-ref index, annotation, CLI integration
 ├── test_pack.py            # word_counter, ignore_parser, chunker, write_chunks, CLI integration
+├── test_scorer.py          # LLM Readiness Score: noise_ratio, boundary, context_depth, grades, CLI
 └── test_token_counter.py   # Token counting: fallback, tiktoken, format_summary, CLI integration
 ```
 
@@ -88,6 +96,10 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `tests/test_dry_run.py` | Antes de alterar `utils/dry_run_report.py` ou a lógica de dry-run em `commands/pack.py` |
 | `tests/test_heading_extractor.py` | Antes de alterar `utils/heading_extractor.py` ou a lógica de context-header em `commands/pack.py` |
 | `tests/test_link_extractor.py` | Antes de alterar `utils/link_extractor.py` ou a lógica de cross-refs em `commands/pack.py` |
+| `tests/test_scorer.py` | Antes de alterar `utils/scorer.py` ou a lógica de score em `commands/pack.py` |
+| `tests/test_context_v1.py` | Antes de alterar o formato `dograpper-context-v1` em `utils/heading_extractor.py` |
+| `tests/test_jsonl_format.py` | Antes de alterar a escrita JSONL em `lib/chunker.py` |
+| `docs/schema-v1.md` | Referência do schema `dograpper-context-v1` — manter sincronizado com `heading_extractor.py` e `chunker.py` |
 
 ## Regras críticas
 
@@ -167,4 +179,22 @@ uv run dograpper pack ./test-docs -o ./chunks --dedup both
 
 # Dry-run para calibrar parâmetros sem escrever arquivos
 uv run dograpper pack ./test-docs -o ./chunks --dry-run --dedup both --show-tokens
+
+# Pack com formato JSONL (para pipelines RAG)
+uv run dograpper pack ./test-docs -o ./chunks --format jsonl
+
+# Pack com LLM Readiness Score
+uv run dograpper pack ./test-docs -o ./chunks --score
+
+# JSONL com contexto e score injetados
+uv run dograpper pack ./test-docs -o ./chunks --format jsonl --context-header --score
+
+# Rodar testes do scorer
+uv run pytest tests/test_scorer.py -v
+
+# Rodar testes do context-v1
+uv run pytest tests/test_context_v1.py -v
+
+# Rodar testes do formato JSONL
+uv run pytest tests/test_jsonl_format.py -v
 ```

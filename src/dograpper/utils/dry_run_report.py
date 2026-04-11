@@ -32,6 +32,8 @@ class DryRunData:
     token_encoding: str = "cl100k"
     oversize_files: int = 0
     dedup_stats: object = None  # Optional DedupStats
+    readiness_scores: list = field(default_factory=list)
+    show_score: bool = False
 
 
 def _effective_words(f: FileStats) -> int:
@@ -122,6 +124,23 @@ def generate_report(data: DryRunData) -> str:
         avg_words = total_effective // data.projected_chunks
         lines.append("")
         lines.append(f"  M\u00e9dia projetada:       ~{avg_words:,} palavras/chunk")
+
+    # --- Section 5: LLM Readiness (opt-in) ---
+    if data.show_score and data.readiness_scores:
+        lines.append("")
+        lines.append("  LLM Readiness Score (boundary não verificável em dry-run):")
+        lines.append("  " + "─" * 53)
+        lines.append(f"  {'Chunk':<20} {'Score':>6} {'Grade':>6} {'Noise':>7} {'Boundary':>9} {'Depth':>6}")
+        lines.append("  " + "─" * 53)
+        for s in data.readiness_scores:
+            boundary = "–"
+            lines.append(
+                f"  {s.chunk_id:<20} {s.score:>5.2f} {s.grade:>6} "
+                f"{s.noise_ratio:>6.1%} {boundary:>9} {s.context_depth:>6}"
+            )
+        avg = sum(s.score for s in data.readiness_scores) / len(data.readiness_scores)
+        lines.append("  " + "─" * 53)
+        lines.append(f"  {'Média':<20} {avg:>5.2f}")
 
     # --- Footer ---
     lines.append("")

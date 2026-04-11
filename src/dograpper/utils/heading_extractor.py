@@ -144,29 +144,37 @@ def format_context_header(
     source_path: str = "",
     chunk_index: int = 0,
     total_chunks: int = 0,
+    word_count: int = 0,
+    url: str = "",
+    readiness: dict = None,
 ) -> str:
-    """Format a context header for injection at the top of a chunk.
+    """Format a dograpper-context-v1 header for injection into chunks.
 
-    Uses HTML comments which are readable by LLMs but invisible
-    when rendered as Markdown.
-
-    Returns:
-        Formatted header string ending with \\n\\n, or empty string
-        if no context is available.
+    Returns formatted header string ending with \\n\\n, or empty string
+    if no context is available.
     """
-    lines = []
+    import json
+
+    payload = {}
 
     if source_path:
-        lines.append(f"<!-- source: {source_path} -->")
-
-    if active_headings:
-        breadcrumb = " > ".join(h.text for h in active_headings)
-        lines.append(f"<!-- context: {breadcrumb} -->")
-
+        payload["source"] = source_path
+    if url:
+        payload["url"] = url
     if total_chunks > 1:
-        lines.append(f"<!-- chunk: {chunk_index}/{total_chunks} -->")
+        payload["chunk_index"] = chunk_index
+        payload["total_chunks"] = total_chunks
+    if word_count > 0:
+        payload["word_count"] = word_count
+    if active_headings:
+        payload["context_breadcrumb"] = [h.text for h in active_headings]
+    if readiness:
+        payload["llm_readiness"] = readiness
 
-    if not lines:
+    payload["schema_version"] = "v1"
+
+    if not payload or payload == {"schema_version": "v1"}:
         return ""
 
-    return "\n".join(lines) + "\n\n"
+    json_str = json.dumps(payload, indent=2, ensure_ascii=False)
+    return f"<!-- dograpper-context-v1\n{json_str}\n-->\n\n"

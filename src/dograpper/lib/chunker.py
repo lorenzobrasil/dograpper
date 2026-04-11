@@ -3,8 +3,6 @@
 import os
 import re
 import logging
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
 from dataclasses import dataclass, field
 from typing import List, Dict
 
@@ -412,7 +410,7 @@ def _split_text_by_words(text: str, max_words: int) -> list:
     return result if result else [("", 0)]
 
 
-def _write_file_with_context(f, cf: ChunkFile, content: str, headings: list, max_words: int):
+def _write_file_with_context(f, cf: ChunkFile, content: str, headings: list, max_words: int, url_map: Dict[str, str] = None, readiness_map: Dict[str, dict] = None, chunk_id: str = ""):
     """Write a file's content with per-sub-chunk context headers.
 
     Splits the content at paragraph boundaries respecting max_words,
@@ -435,17 +433,21 @@ def _write_file_with_context(f, cf: ChunkFile, content: str, headings: list, max
         # leading whitespace), look ahead to the first heading's position
         if not active and headings and j == 0:
             active = get_active_headings(headings, headings[0].char_offset)
+        word_count = len(sub_text.split())
         header = format_context_header(
             active_headings=active,
             source_path=cf.relative_path,
             chunk_index=j + 1,
             total_chunks=total_sub,
+            word_count=word_count,
+            url=url_map.get(cf.relative_path, "") if url_map else "",
+            readiness=readiness_map.get(chunk_id) if readiness_map and chunk_id else None,
         )
         f.write(header)
         f.write(sub_text)
 
 
-def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
+def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0, url_map: Dict[str, str] = None, readiness_map: Dict[str, dict] = None, prefix: str = "docs_chunk_"):
     """Write a chunk as plain text (no markdown or HTML markup)."""
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
@@ -461,13 +463,14 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
             content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
 
             if heading_map is not None and cf.relative_path in heading_map:
-                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words)
+                chunk_id = f"{prefix}{chunk.index:02d}"
+                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words, url_map=url_map, readiness_map=readiness_map, chunk_id=chunk_id)
             else:
                 f.write(f"=== SOURCE: {cf.relative_path} ===\n\n")
                 f.write(content)
 
 
-def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
+def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0, url_map: Dict[str, str] = None, readiness_map: Dict[str, dict] = None, prefix: str = "docs_chunk_"):
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
             f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
@@ -482,33 +485,33 @@ def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_i
             content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
 
             if heading_map is not None and cf.relative_path in heading_map:
-                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words)
+                chunk_id = f"{prefix}{chunk.index:02d}"
+                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words, url_map=url_map, readiness_map=readiness_map, chunk_id=chunk_id)
             else:
                 f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
                 f.write(content)
 
-def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
-    root = ET.Element("chunk", index=str(chunk.index), total=str(total_chunks))
+def _write_chunk_jsonl(chunk: Chunk, base_dir: str, out_filepath: str,
+                       with_index: bool, total_chunks: int,
+                       no_extract: bool = False,
+                       text_overrides: Dict[str, str] = None,
+                       heading_map: Dict = None,
+                       max_words: int = 0,
+                       url_map: Dict[str, str] = None,
+                       readiness_map: Dict[str, dict] = None,
+                       prefix: str = "docs_chunk_"):
+    """Write a chunk as a JSONL file (one JSON line per source file/sub-chunk)."""
+    import json
 
-    if with_index:
-        meta = ET.SubElement(root, "meta")
-        ET.SubElement(meta, "file_count").text = str(len(chunk.files))
-        ET.SubElement(meta, "word_count").text = str(chunk.total_words)
-        files_elem = ET.SubElement(meta, "files")
-        for cf in chunk.files:
-            ET.SubElement(files_elem, "file", path=cf.relative_path, words=str(cf.word_count))
+    lines = []
 
-    sources = ET.SubElement(root, "sources")
-    source_contents = {}
-    placeholder_idx = 0
-
-    for i, cf in enumerate(chunk.files):
-        content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
+    for cf in chunk.files:
+        content = _read_source_content(base_dir, cf, no_extract=no_extract,
+                                       text_overrides=text_overrides)
 
         if heading_map is not None and cf.relative_path in heading_map:
             from ..utils.heading_extractor import get_active_headings
             headings = heading_map[cf.relative_path]
-
             if headings and max_words > 0:
                 sub_chunks = _split_text_by_words(content, max_words)
             else:
@@ -516,40 +519,48 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
 
             total_sub = len(sub_chunks)
             for j, (sub_text, char_offset) in enumerate(sub_chunks):
-                attrs = {"path": cf.relative_path}
                 active = get_active_headings(headings, char_offset) if headings else []
                 if not active and headings and j == 0:
                     active = get_active_headings(headings, headings[0].char_offset)
+
+                record = {
+                    "id": f"{chunk.index:02d}_{cf.relative_path}",
+                    "source": cf.relative_path,
+                    "words": len(sub_text.split()),
+                    "content": sub_text,
+                    "schema_version": "v1",
+                }
                 if active:
-                    attrs["context"] = " > ".join(h.text for h in active)
+                    record["breadcrumb"] = [h.text for h in active]
                 if total_sub > 1:
-                    attrs["part"] = f"{j + 1}/{total_sub}"
-                source_elem = ET.SubElement(sources, "source", **attrs)
-                placeholder = f"__CDATA_PLACEHOLDER_{placeholder_idx}__"
-                placeholder_idx += 1
-                source_elem.text = placeholder
-                escaped = sub_text.replace("]]>", "]]]]><![CDATA[>")
-                source_contents[placeholder] = f"\n<![CDATA[\n{escaped}\n]]>\n"
+                    record["chunk_index"] = j + 1
+                    record["total_chunks"] = total_sub
+                    record["id"] = f"{chunk.index:02d}_{j+1}_{cf.relative_path}"
+                if url_map and cf.relative_path in url_map:
+                    record["url"] = url_map[cf.relative_path]
+                if readiness_map:
+                    chunk_id = f"{prefix}{chunk.index:02d}"
+                    if chunk_id in readiness_map:
+                        record["readiness_grade"] = readiness_map[chunk_id]["grade"]
+
+                lines.append(json.dumps(record, ensure_ascii=False))
         else:
-            source_elem = ET.SubElement(sources, "source", path=cf.relative_path)
-            placeholder = f"__CDATA_PLACEHOLDER_{placeholder_idx}__"
-            placeholder_idx += 1
-            source_elem.text = placeholder
-            escaped = content.replace("]]>", "]]]]><![CDATA[>")
-            source_contents[placeholder] = f"\n<![CDATA[\n{escaped}\n]]>\n"
-
-    # Generate XML string
-    rough_string = ET.tostring(root, 'utf-8', xml_declaration=True).decode('utf-8')
-
-    # Replace placeholders with manual CDATA blocks
-    for placeholder, cdata_content in source_contents.items():
-        rough_string = rough_string.replace(placeholder, cdata_content)
+            record = {
+                "id": f"{chunk.index:02d}_{cf.relative_path}",
+                "source": cf.relative_path,
+                "words": len(content.split()),
+                "content": content,
+                "schema_version": "v1",
+            }
+            if url_map and cf.relative_path in url_map:
+                record["url"] = url_map[cf.relative_path]
+            lines.append(json.dumps(record, ensure_ascii=False))
 
     with open(out_filepath, 'w', encoding='utf-8') as f:
-        f.write(rough_string)
+        f.write("\n".join(lines) + "\n")
 
 
-def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0) -> List[str]:
+def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0, url_map: Dict[str, str] = None, readiness_map: Dict[str, dict] = None) -> List[str]:
     """Flush chunk classes out as disk files with or without headings."""
     os.makedirs(output_dir, exist_ok=True)
     generated_paths = []
@@ -561,10 +572,14 @@ def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: st
         generated_paths.append(out_filepath)
 
         if fmt == "xml":
-            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
+            raise ValueError(
+                "XML format is deprecated. Use 'md' (default) or 'jsonl'."
+            )
+        elif fmt == "jsonl":
+            _write_chunk_jsonl(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words, url_map=url_map, readiness_map=readiness_map, prefix=prefix)
         elif fmt == "txt":
-            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
+            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words, url_map=url_map, readiness_map=readiness_map, prefix=prefix)
         else:
-            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
+            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words, url_map=url_map, readiness_map=readiness_map, prefix=prefix)
 
     return generated_paths

@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
               help="Prefixo dos arquivos gerados")
 @click.option('--with-index/--no-index', default=True, show_default=True,
               help="Incluir sumário de arquivos no cabeçalho de cada chunk")
-@click.option('--format', type=click.Choice(['txt', 'md', 'xml']), default='md', show_default=True,
-              help="Formato de saída dos chunks")
+@click.option('--format', type=click.Choice(['txt', 'md', 'jsonl', 'xml']), default='md', show_default=True,
+              help="Formato de saída dos chunks. 'xml' está depreciado.")
 @click.option('--no-extract', is_flag=True, default=False,
               help="Desativa a extração inteligente de conteúdo. Usa o HTML inteiro como no comportamento anterior.")
 @click.option('--show-tokens', is_flag=True, default=False,
@@ -72,8 +72,11 @@ logger = logging.getLogger(__name__)
               help="Preset de empacotamento otimizado. "
                    "'notebooklm': ≤50 chunks balanceados. "
                    "'rag-standard': sem restrições especiais.")
+@click.option('--score', is_flag=True, default=False,
+              help="Calcula LLM Readiness Score por chunk. "
+                   "Gera llm-readiness.json no output.")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool, delta: bool, manifest: str, bundle: str):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool, delta: bool, manifest: str, bundle: str, score: bool):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -116,6 +119,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'delta': delta,
         'manifest': manifest,
         'bundle': bundle,
+        'score': score,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -140,6 +144,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     is_delta = merged_params.get('delta', delta)
     manifest_path = merged_params.get('manifest', manifest)
     bundle_preset = merged_params.get('bundle', bundle)
+    is_score = merged_params.get('score', score)
 
     # 2b. Bundle overrides
     if bundle_preset == 'notebooklm':
@@ -147,6 +152,12 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         if max_w > 500000:
             max_w = 500000
         logger.info(f"[bundle:notebooklm] max_chunks={max_c}, max_words={max_w}")
+
+    # 2c. Deprecate XML format
+    if fmt == 'xml':
+        raise click.ClickException(
+            "XML format is deprecated since v1.x. Use 'md' (default) or 'jsonl'."
+        )
 
     # 3. List all files
     all_files = []
@@ -221,9 +232,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         dedup_word_counts = {rp: len(t.split()) for rp, t in dedup_result.texts.items()}
         dedup_text_overrides = dedup_result.texts
 
-    # 7b. Extract headings for context-header (opt-in, before chunking)
+    # 7b. Extract headings for context-header or scoring (opt-in, before chunking)
     heading_map = None
-    if ctx_header:
+    if ctx_header or is_score:
         from ..utils.heading_extractor import extract_with_headings
         from ..utils.content_extractor import extract_content as _extract_ctx
 
@@ -251,6 +262,24 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
                     heading_map[rel] = []
             else:
                 heading_map[rel] = []
+
+    # 7c. Build url_map from manifest (for context-header URLs)
+    url_map = None
+    if ctx_header:
+        try:
+            from ..lib.manifest import load_manifest
+            manifest_data = load_manifest(manifest_path)
+            if manifest_data and manifest_data.files:
+                url_map = {}
+                for fpath in filtered_paths:
+                    rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
+                    for key, entry in manifest_data.files.items():
+                        local = entry.local_path or key
+                        if local == rel or key == rel:
+                            url_map[rel] = entry.url
+                            break
+        except Exception:
+            pass
 
     # 8. Execute chunking
     if strat == 'semantic':
@@ -338,11 +367,131 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
             dedup_stats=dedup_stats,
         )
 
+        if is_score:
+            from ..utils.scorer import score_chunk as _dr_score_chunk
+
+            dr_scores = []
+            for chunk in chunks:
+                chunk_id = f"{pref}{chunk.index:02d}"
+                raw_total = 0
+                extracted_total = 0
+                headings_count = 0
+                max_heading_level = 0
+
+                for cf in chunk.files:
+                    matching = [fs for fs in file_stats if fs.filepath == cf.relative_path]
+                    if matching:
+                        raw_total += matching[0].words_before_extraction
+                        extracted_total += matching[0].words_after_extraction
+
+                    if heading_map and cf.relative_path in heading_map:
+                        hdgs = heading_map[cf.relative_path]
+                        headings_count += len(hdgs)
+                        if hdgs:
+                            max_heading_level = max(max_heading_level, max(h.level for h in hdgs))
+
+                cs = _dr_score_chunk(
+                    chunk_id=chunk_id,
+                    text="",  # no final text in dry-run
+                    raw_words=raw_total,
+                    extracted_words=extracted_total,
+                    headings_count=headings_count,
+                    max_heading_level=max_heading_level,
+                )
+                # In dry-run, boundary can't be checked — force True
+                cs.boundary_integrity = True
+                dr_scores.append(cs)
+
+            report_data.readiness_scores = dr_scores
+            report_data.show_score = True
+
         click.echo(generate_report(report_data))
         return
 
+    # 9c. LLM Readiness scoring (before write, so readiness can be injected into headers)
+    readiness_scores = []
+    readiness_map = None
+    if is_score:
+        from ..utils.scorer import score_chunk
+        from ..utils.html_stripper import strip_html as _score_strip
+        from ..utils.content_extractor import extract_content as _score_extract
+
+        for chunk in chunks:
+            chunk_id = f"{pref}{chunk.index:02d}"
+
+            raw_total = 0
+            extracted_total = 0
+            headings_count = 0
+            max_heading_level = 0
+            chunk_text_parts = []
+
+            for cf in chunk.files:
+                fpath = os.path.join(input_dir, cf.relative_path)
+                if fpath.lower().endswith(('.html', '.htm')):
+                    try:
+                        with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                            raw_html = fh.read()
+                        raw_total += len(_score_strip(raw_html).split())
+                        if not no_ext:
+                            extracted_total += len(_score_strip(_score_extract(raw_html)).split())
+                        else:
+                            extracted_total += len(_score_strip(raw_html).split())
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        wc = len(open(fpath, 'r', encoding='utf-8', errors='replace').read().split())
+                        raw_total += wc
+                        extracted_total += wc
+                    except Exception:
+                        pass
+
+                if heading_map and cf.relative_path in heading_map:
+                    hdgs = heading_map[cf.relative_path]
+                    headings_count += len(hdgs)
+                    if hdgs:
+                        max_heading_level = max(max_heading_level, max(h.level for h in hdgs))
+
+                # Read content for boundary check
+                if dedup_text_overrides and cf.relative_path in dedup_text_overrides:
+                    chunk_text_parts.append(dedup_text_overrides[cf.relative_path])
+                else:
+                    try:
+                        with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                            raw = fh.read()
+                        if fpath.lower().endswith(('.html', '.htm')):
+                            if not no_ext:
+                                raw = _score_extract(raw)
+                            raw = _score_strip(raw)
+                        chunk_text_parts.append(raw)
+                    except Exception:
+                        pass
+
+            chunk_text = "\n\n".join(chunk_text_parts)
+
+            cs = score_chunk(
+                chunk_id=chunk_id,
+                text=chunk_text,
+                raw_words=raw_total,
+                extracted_words=extracted_total,
+                headings_count=headings_count,
+                max_heading_level=max_heading_level,
+            )
+            readiness_scores.append(cs)
+
+        # Build readiness_map for header injection (md/txt) and JSONL grade
+        if ctx_header or fmt == 'jsonl':
+            readiness_map = {
+                s.chunk_id: {
+                    "score": round(s.score, 2),
+                    "grade": s.grade,
+                    "noise_ratio": round(s.noise_ratio, 3),
+                }
+                for s in readiness_scores
+            }
+
     # 10. Write outputs
-    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map, max_words=max_w)
+    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map, max_words=max_w, url_map=url_map, readiness_map=readiness_map)
 
     # 10a. Cross-references (opt-in, after write)
     cross_ref_total = 0
@@ -443,7 +592,36 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
             heading_map=heading_map
         )
 
-    # 10d. Token counting (opt-in)
+    # 10d. LLM Readiness — write JSON (scoring already done in step 9c)
+    if is_score and readiness_scores:
+        readiness_path = os.path.join(output_dir, "llm-readiness.json")
+        readiness_data = {
+            "summary": {
+                "total_chunks": len(readiness_scores),
+                "avg_score": round(sum(s.score for s in readiness_scores) / len(readiness_scores), 2) if readiness_scores else 0,
+                "grades": {
+                    "A": sum(1 for s in readiness_scores if s.grade == "A"),
+                    "B": sum(1 for s in readiness_scores if s.grade == "B"),
+                    "C": sum(1 for s in readiness_scores if s.grade == "C"),
+                },
+            },
+            "chunks": [
+                {
+                    "chunk_id": s.chunk_id,
+                    "word_count": s.word_count,
+                    "noise_ratio": round(s.noise_ratio, 3),
+                    "boundary_integrity": s.boundary_integrity,
+                    "context_depth": s.context_depth,
+                    "score": round(s.score, 2),
+                    "grade": s.grade,
+                }
+                for s in readiness_scores
+            ],
+        }
+        with open(readiness_path, 'w', encoding='utf-8') as rf:
+            json.dump(readiness_data, rf, indent=2)
+
+    # 10e. Token counting (opt-in)
     token_counts = []
     if s_tokens:
         from ..utils.token_counter import count_tokens, format_token_summary
@@ -504,6 +682,16 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         click.echo(f"  Import guide:    {guide_path}")
 
     click.echo(f"  Output:          {output_dir}/")
+
+    if readiness_scores:
+        readiness_path = os.path.join(output_dir, "llm-readiness.json")
+        grade_counts = {"A": 0, "B": 0, "C": 0}
+        for s in readiness_scores:
+            grade_counts[s.grade] += 1
+        avg_score = sum(s.score for s in readiness_scores) / len(readiness_scores)
+        click.echo(f"  LLM Readiness:   {readiness_path}")
+        click.echo(f"                   {grade_counts['A']}x A, {grade_counts['B']}x B, {grade_counts['C']}x C "
+                   f"(avg: {avg_score:.2f})")
 
     if do_cross_refs:
         click.echo(f"  Cross-refs:        {output_dir}/cross_refs.json ({cross_ref_total} links, {cross_ref_unresolved} unresolved)")
