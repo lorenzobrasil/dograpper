@@ -1,6 +1,7 @@
 """Core logical engine for chunking texts natively in Python."""
 
 import os
+import re
 import logging
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
@@ -162,8 +163,86 @@ def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False,
         return f"[Excluded unreadable blob: {e}]"
 
 
+def _group_into_blocks(paragraphs: list) -> list:
+    """Group paragraphs into indivisible structural blocks.
+
+    Returns list of strings where each string is either a single
+    paragraph or multiple paragraphs joined by ``\\n\\n`` that form
+    a structural unit (fenced code block, ``<pre>`` block, contiguous
+    list, or markdown table).
+    """
+    blocks = []
+    i = 0
+    while i < len(paragraphs):
+        para = paragraphs[i]
+
+        # Fenced code block: starts with ```
+        if para.lstrip().startswith("```"):
+            lines = para.split("\n")
+            fence_count = sum(1 for l in lines if l.strip().startswith("```"))
+            if fence_count >= 2:
+                # Self-contained in one paragraph
+                blocks.append(para)
+                i += 1
+                continue
+            # Accumulate until closing fence
+            group = [para]
+            i += 1
+            while i < len(paragraphs):
+                group.append(paragraphs[i])
+                if paragraphs[i].rstrip().endswith("```") or paragraphs[i].strip() == "```":
+                    i += 1
+                    break
+                i += 1
+            blocks.append("\n\n".join(group))
+            continue
+
+        # <pre> block without closing </pre>
+        if "<pre" in para.lower() and "</pre>" not in para.lower():
+            group = [para]
+            i += 1
+            while i < len(paragraphs):
+                group.append(paragraphs[i])
+                if "</pre>" in paragraphs[i].lower():
+                    i += 1
+                    break
+                i += 1
+            blocks.append("\n\n".join(group))
+            continue
+
+        # Contiguous list items
+        if re.match(r'^(\s*[-*+]\s|\s*\d+\.\s)', para):
+            group = [para]
+            i += 1
+            while i < len(paragraphs) and re.match(r'^(\s*[-*+]\s|\s*\d+\.\s)', paragraphs[i]):
+                group.append(paragraphs[i])
+                i += 1
+            blocks.append("\n\n".join(group))
+            continue
+
+        # Contiguous table rows
+        if "|" in para and para.strip().startswith("|"):
+            group = [para]
+            i += 1
+            while i < len(paragraphs) and "|" in paragraphs[i] and paragraphs[i].strip().startswith("|"):
+                group.append(paragraphs[i])
+                i += 1
+            blocks.append("\n\n".join(group))
+            continue
+
+        # Regular paragraph
+        blocks.append(para)
+        i += 1
+
+    return blocks
+
+
 def _split_text_by_words(text: str, max_words: int) -> list:
-    """Split text into sub-chunks at paragraph (\\n\\n) boundaries.
+    """Split text into sub-chunks respecting structural block boundaries.
+
+    Groups paragraphs into indivisible blocks (code fences, lists, tables,
+    ``<pre>`` blocks) before accumulating by word count.  The word limit
+    may be slightly exceeded to preserve block integrity.
 
     Returns list of (text, char_offset) tuples where char_offset is the
     position of the sub-chunk's start in the original text.
@@ -172,25 +251,27 @@ def _split_text_by_words(text: str, max_words: int) -> list:
         return [(text or "", 0)]
 
     paragraphs = text.split("\n\n")
+    blocks = _group_into_blocks(paragraphs)
+
     result = []
     current_parts = []
     current_words = 0
     char_pos = 0
     chunk_start = 0
 
-    for idx, para in enumerate(paragraphs):
-        para_words = len(para.split())
+    for idx, block in enumerate(blocks):
+        block_words = len(block.split())
 
-        if current_words + para_words > max_words and current_parts:
+        if current_words + block_words > max_words and current_parts:
             result.append(("\n\n".join(current_parts), chunk_start))
             chunk_start = char_pos
             current_parts = []
             current_words = 0
 
-        current_parts.append(para)
-        current_words += para_words
-        char_pos += len(para)
-        if idx < len(paragraphs) - 1:
+        current_parts.append(block)
+        current_words += block_words
+        char_pos += len(block)
+        if idx < len(blocks) - 1:
             char_pos += 2  # \n\n separator
 
     if current_parts:
