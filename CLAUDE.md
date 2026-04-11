@@ -36,15 +36,19 @@ src/dograpper/
 │   └── wget_mirror.py      # Wrapper subprocess com retry e backoff
 └── utils/
     ├── content_extractor.py # extract_content() — extração inteligente de HTML (semantic containers, density scoring, blacklist)
+    ├── dedup.py            # deduplicate() — dedup cross-file via MD5 (exact) e SimHash (fuzzy)
+    ├── dry_run_report.py   # generate_report() — relatório formatado para --dry-run
     ├── logger.py           # setup_logger() com suporte a verbose/quiet
-    ├── html_stripper.py    # strip_html() via html.parser, descarta script/style
+    ├── html_stripper.py    # strip_html() via html.parser, descarta script/style, emite \n\n entre blocos HTML
     ├── token_counter.py    # count_tokens() — tiktoken opcional, fallback estimativa palavras→tokens
     └── word_counter.py     # count_words() e count_words_file()
 tests/
 ├── test_cli_smoke.py       # Help, flags obrigatórias, mutual exclusion
 ├── test_config.py          # Precedência, JSON inválido, arquivo ausente
 ├── test_content_extractor.py # Extração inteligente: semantic, density, blacklist, edge cases, CLI
+├── test_dedup.py           # Dedup: _split_blocks, _simhash, _hamming_distance, exact/fuzzy/both, CLI
 ├── test_download.py        # wget mock, SPA detector, manifest roundtrip
+├── test_dry_run.py         # Dry-run: report generation, CLI integration, edge cases
 ├── test_e2e.py             # Integração ponta-a-ponta usando ./test-docs
 ├── test_pack.py            # word_counter, ignore_parser, chunker, write_chunks, CLI integration
 └── test_token_counter.py   # Token counting: fallback, tiktoken, format_summary, CLI integration
@@ -76,6 +80,8 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `tests/test_download.py` | Antes de alterar qualquer coisa em `lib/wget_mirror.py`, `lib/spa_detector.py`, ou `commands/download.py` |
 | `tests/test_content_extractor.py` | Antes de alterar `utils/content_extractor.py` |
 | `tests/test_token_counter.py` | Antes de alterar `utils/token_counter.py` |
+| `tests/test_dedup.py` | Antes de alterar `utils/dedup.py` ou a integração de dedup em `commands/pack.py` |
+| `tests/test_dry_run.py` | Antes de alterar `utils/dry_run_report.py` ou a lógica de dry-run em `commands/pack.py` |
 
 ## Regras críticas
 
@@ -143,4 +149,16 @@ uv run pytest tests/test_content_extractor.py -v
 
 # Rodar testes de token counter
 uv run pytest tests/test_token_counter.py -v
+
+# Rodar testes de deduplicação
+uv run pytest tests/test_dedup.py -v
+
+# Rodar testes de dry-run
+uv run pytest tests/test_dry_run.py -v
+
+# Pack com deduplicação (remove blocos repetidos entre páginas)
+uv run dograpper pack ./test-docs -o ./chunks --dedup both
+
+# Dry-run para calibrar parâmetros sem escrever arquivos
+uv run dograpper pack ./test-docs -o ./chunks --dry-run --dedup both --show-tokens
 ```

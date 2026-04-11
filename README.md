@@ -115,8 +115,20 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--no-extract` | — | `false` | Desativa extração inteligente de conteúdo HTML |
 | `--show-tokens` | — | `false` | Exibe contagem de tokens no resumo final |
 | `--token-encoding` | — | `cl100k` | Encoding do tokenizer: `cl100k`, `o200k`, `p50k` |
+| `--dry-run` | — | `false` | Simula o pack sem escrever arquivos; exibe relatório de compressão e projeção |
+| `--dedup` | — | `off` | Deduplicação de blocos: `off`, `exact`, `fuzzy`, `both` |
+| `--dedup-threshold` | — | `3` | Distância de Hamming máxima para dedup fuzzy (0-10) |
 
 **Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
+
+**Deduplicação** (`--dedup`): remove blocos de texto duplicados entre arquivos de documentação. Comum em sites que repetem headers, footers, disclaimers ou blocos de navegação em várias páginas. Três modos:
+- `exact` — remove blocos idênticos (normalizado por case e whitespace) via hash MD5
+- `fuzzy` — remove blocos quase idênticos via SimHash + distância de Hamming (controlada por `--dedup-threshold`)
+- `both` — aplica exact primeiro, depois fuzzy nos blocos restantes
+
+Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em headings curtos. A primeira ocorrência (ordem alfabética de arquivo) é sempre preservada.
+
+**Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe um relatório completo com contagem de arquivos, palavras (bruto vs. extraído vs. pós-dedup), projeção de chunks, top 10 arquivos por tamanho, e warnings de oversize. Útil para calibrar parâmetros antes de empacotar.
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
@@ -150,6 +162,18 @@ dograpper pack ./rust-docs -o ./chunks --show-tokens
 
 # Tokens com encoding específico (GPT-4o)
 dograpper pack ./rust-docs -o ./chunks --show-tokens --token-encoding o200k
+
+# Simulação sem escrever arquivos (dry-run)
+dograpper pack ./rust-docs -o ./chunks --dry-run
+
+# Deduplicação exata (remove blocos repetidos entre páginas)
+dograpper pack ./rust-docs -o ./chunks --dedup exact
+
+# Deduplicação completa (exact + fuzzy) com threshold conservador
+dograpper pack ./rust-docs -o ./chunks --dedup both --dedup-threshold 2
+
+# Dry-run com dedup e tokens para calibrar parâmetros
+dograpper pack ./rust-docs -o ./chunks --dedup both --show-tokens --dry-run
 ```
 
 ### Flags globais
@@ -242,6 +266,42 @@ Com `--show-tokens`, linhas adicionais são exibidas:
   Encoding:        cl100k_base
 ```
 
+Com `--dedup`, linhas adicionais são exibidas:
+
+```
+  Dedup mode:        both
+  Blocks analisados: 128
+  Blocks removidos:  11 (11 exact + 0 fuzzy)
+  Palavras removidas: 256 (~1%)
+```
+
+Com `--dry-run`, nenhum arquivo é escrito. Um relatório completo é exibido:
+
+```
+Dry-run report (nenhum arquivo foi escrito):
+───────────────────────────────────────────────────────
+
+  Arquivos encontrados:  47
+  Arquivos excluídos:    12
+  Arquivos processados:  35
+
+  Palavras (bruto):      52,000
+  Palavras (extraído):   41,500
+  Redução por extração:  20%
+
+  Estratégia:            size
+  Limite por chunk:      500,000 palavras
+  Chunks projetados:     1 / 50 (max)
+
+  Top 10 arquivos por palavras (após extração):
+  ─────────────────────────────────────────────────────
+   1. api/index.html                            9,634 words  (-27%)
+   ...
+
+───────────────────────────────────────────────────────
+Ajuste parâmetros e rode sem --dry-run para empacotar.
+```
+
 Warnings são exibidos quando:
 - Um arquivo individual excede `--max-words-per-chunk` (é colocado sozinho em um chunk)
 - O total de chunks excede `--max-chunks`
@@ -266,6 +326,8 @@ src/dograpper/
 │   └── wget_mirror.py      # Wrapper do wget --mirror
 └── utils/
     ├── content_extractor.py # Extração inteligente de conteúdo HTML (remove boilerplate)
+    ├── dedup.py            # Deduplicação cross-file (exact MD5 + fuzzy SimHash)
+    ├── dry_run_report.py   # Relatório de simulação do pack (--dry-run)
     ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
     ├── logger.py           # Setup de logging
     ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)

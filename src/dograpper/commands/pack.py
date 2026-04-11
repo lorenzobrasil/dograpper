@@ -45,8 +45,17 @@ logger = logging.getLogger(__name__)
               help="Exibe contagem de tokens por chunk e total no summary final.")
 @click.option('--token-encoding', type=str, default="cl100k", show_default=True,
               help="Encoding do tokenizer (cl100k, o200k, p50k). Requer --show-tokens.")
+@click.option('--dry-run', is_flag=True, default=False,
+              help="Simula o pack sem escrever arquivos. Exibe relatório de compressão e projeção de chunks.")
+@click.option('--dedup', type=click.Choice(['off', 'exact', 'fuzzy', 'both'], case_sensitive=False),
+              default='off', show_default=True,
+              help="Deduplicação de blocos entre arquivos. "
+                   "'exact' remove blocos idênticos, 'fuzzy' remove quase idênticos, "
+                   "'both' aplica ambos.")
+@click.option('--dedup-threshold', type=int, default=3, show_default=True,
+              help="Distância de Hamming máxima para dedup fuzzy (0-10). Menor = mais conservador.")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -81,6 +90,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'no_extract': no_extract,
         'show_tokens': show_tokens,
         'token_encoding': token_encoding,
+        'dry_run': dry_run,
+        'dedup': dedup,
+        'dedup_threshold': dedup_threshold,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -97,7 +109,10 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     no_ext = merged_params.get('no_extract', no_extract)
     s_tokens = merged_params.get('show_tokens', show_tokens)
     t_encoding = merged_params.get('token_encoding', token_encoding)
-    
+    is_dry_run = merged_params.get('dry_run', dry_run)
+    dedup_mode = merged_params.get('dedup', dedup)
+    dedup_thresh = merged_params.get('dedup_threshold', dedup_threshold)
+
     # 3. List all files
     all_files = []
     for root, _, files in os.walk(input_dir):
@@ -115,20 +130,123 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     if not filtered_paths:
         raise click.ClickException("All files were excluded by ignore rules. Check your .docsignore or --ignore flags.")
         
-    # 7. Execute chunking
+    # 7. Deduplication (opt-in, before chunking)
+    dedup_stats = None
+    dedup_word_counts = None
+    dedup_text_overrides = None
+
+    if dedup_mode != "off":
+        from ..utils.html_stripper import strip_html as _strip_html
+        from ..utils.content_extractor import extract_content as _extract_content
+        from ..utils.dedup import deduplicate
+
+        processed_texts = {}
+        for fpath in filtered_paths:
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                    raw = fh.read()
+            except Exception:
+                continue
+            rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
+            if fpath.lower().endswith(('.html', '.htm')):
+                if not no_ext:
+                    raw = _extract_content(raw)
+                text = _strip_html(raw)
+            else:
+                text = raw
+            processed_texts[rel] = text
+
+        dedup_result = deduplicate(processed_texts, mode=dedup_mode, hamming_threshold=dedup_thresh)
+        dedup_stats = dedup_result.stats
+        dedup_word_counts = {rp: len(t.split()) for rp, t in dedup_result.texts.items()}
+        dedup_text_overrides = dedup_result.texts
+
+    # 8. Execute chunking
     if strat == 'semantic':
-        chunks = chunk_by_semantic(filtered_paths, input_dir, max_w, no_extract=no_ext)
+        chunks = chunk_by_semantic(filtered_paths, input_dir, max_w, no_extract=no_ext, word_counts=dedup_word_counts)
     else:
-        chunks = chunk_by_size(filtered_paths, input_dir, max_w, no_extract=no_ext)
-        
+        chunks = chunk_by_size(filtered_paths, input_dir, max_w, no_extract=no_ext, word_counts=dedup_word_counts)
+
     generated_chunk_count = len(chunks)
-    
-    # 8. Validate against max
+
+    # 9. Validate against max
     if generated_chunk_count > max_c:
         logger.warning(f"Generated {generated_chunk_count} chunks, exceeding max-chunks limit of {max_c}. Consider increasing --max-words-per-chunk or adding --ignore rules.")
-        
-    # 9. Write outputs
-    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext)
+
+    # 9b. Dry-run: generate report and exit without writing
+    if is_dry_run:
+        from ..utils.html_stripper import strip_html
+        from ..utils.content_extractor import extract_content
+        from ..utils.dry_run_report import DryRunData, FileStats, generate_report
+
+        file_stats = []
+        for fpath in filtered_paths:
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                    raw = fh.read()
+            except Exception:
+                continue
+
+            rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
+            is_html_file = fpath.lower().endswith(('.html', '.htm'))
+
+            if is_html_file:
+                text_before = strip_html(raw)
+                if not no_ext:
+                    text_after = strip_html(extract_content(raw))
+                else:
+                    text_after = text_before
+            else:
+                text_before = raw
+                text_after = raw
+
+            words_before = len(text_before.split())
+            words_after = len(text_after.split())
+
+            # Use post-dedup word count if available
+            words_after_dedup = None
+            if dedup_word_counts and rel in dedup_word_counts:
+                words_after_dedup = dedup_word_counts[rel]
+
+            tokens = None
+            if s_tokens:
+                from ..utils.token_counter import count_tokens
+                token_text = dedup_text_overrides[rel] if dedup_text_overrides and rel in dedup_text_overrides else text_after
+                tokens = count_tokens(token_text, encoding=t_encoding).tokens
+
+            file_stats.append(FileStats(
+                filepath=rel,
+                words_before_extraction=words_before,
+                words_after_extraction=words_after,
+                tokens=tokens,
+                words_after_dedup=words_after_dedup,
+            ))
+
+        # Use post-dedup word counts for oversize check when available
+        def _effective_words(fs):
+            return fs.words_after_dedup if fs.words_after_dedup is not None else fs.words_after_extraction
+
+        oversize = sum(1 for fs in file_stats if _effective_words(fs) > max_w)
+
+        report_data = DryRunData(
+            total_files_found=len(all_files),
+            total_files_excluded=len(all_files) - len(filtered_paths),
+            file_stats=file_stats,
+            projected_chunks=generated_chunk_count,
+            max_chunks=max_c,
+            max_words_per_chunk=max_w,
+            strategy=strat,
+            show_tokens=s_tokens,
+            token_encoding=t_encoding,
+            oversize_files=oversize,
+            dedup_stats=dedup_stats,
+        )
+
+        click.echo(generate_report(report_data))
+        return
+
+    # 10. Write outputs
+    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides)
     
     # 10. Token counting (opt-in)
     token_counts = []
@@ -172,6 +290,17 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
          click.echo("  Words per chunk:  0")
          
     click.echo(f"  Total words:     {total_words:,}".replace(',', '.'))
+
+    if dedup_stats is not None:
+        click.echo(f"  Dedup mode:        {dedup_mode}")
+        click.echo(f"  Blocks analisados: {dedup_stats.total_blocks}")
+        click.echo(f"  Blocks removidos:  {dedup_stats.blocks_removed} ({dedup_stats.blocks_removed_exact} exact + {dedup_stats.blocks_removed_fuzzy} fuzzy)")
+        if total_words + dedup_stats.words_removed > 0:
+            pct = dedup_stats.words_removed * 100 // (total_words + dedup_stats.words_removed)
+        else:
+            pct = 0
+        click.echo(f"  Palavras removidas: {dedup_stats.words_removed:,} (~{pct}%)".replace(',', '.'))
+
     click.echo(f"  Output:          {output_dir}/")
 
     if token_counts:

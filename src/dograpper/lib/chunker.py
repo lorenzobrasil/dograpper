@@ -24,7 +24,7 @@ class Chunk:
     files: List[ChunkFile] = field(default_factory=list)
     total_words: int = 0
 
-def chunk_by_size(files: List[str], base_dir: str, max_words: int, no_extract: bool = False) -> List[Chunk]:
+def chunk_by_size(files: List[str], base_dir: str, max_words: int, no_extract: bool = False, word_counts: Dict[str, int] = None) -> List[Chunk]:
     """Group incoming files in chunks keeping them under the soft limit max_words per chunk."""
 
     # Sort alphabetically to keep things predictable
@@ -34,8 +34,11 @@ def chunk_by_size(files: List[str], base_dir: str, max_words: int, no_extract: b
     current_chunk = Chunk(index=1)
 
     for f in sorted_files:
-        words = count_words_file(f, no_extract=no_extract)
         rel_path = os.path.relpath(f, base_dir).replace(os.sep, '/')
+        if word_counts and rel_path in word_counts:
+            words = word_counts[rel_path]
+        else:
+            words = count_words_file(f, no_extract=no_extract)
         
         # Especial case: Single immense file
         if words > max_words:
@@ -70,7 +73,7 @@ def chunk_by_size(files: List[str], base_dir: str, max_words: int, no_extract: b
         
     return chunks
 
-def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extract: bool = False) -> List[Chunk]:
+def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extract: bool = False, word_counts: Dict[str, int] = None) -> List[Chunk]:
     """Group files by their parent directory, keeping related content together.
 
     Uses the *full* relative directory path (``os.path.dirname``) as the module
@@ -101,8 +104,11 @@ def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extrac
         mod_word_counts = []
         mod_total_words = 0
         for f in mod_files:
-            wc = count_words_file(f, no_extract=no_extract)
             rel_path = os.path.relpath(f, base_dir).replace(os.sep, '/')
+            if word_counts and rel_path in word_counts:
+                wc = word_counts[rel_path]
+            else:
+                wc = count_words_file(f, no_extract=no_extract)
             mod_word_counts.append((f, rel_path, wc))
             mod_total_words += wc
             
@@ -123,7 +129,7 @@ def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extrac
                 chunks.append(current_chunk)
                 current_chunk = Chunk(index=len(chunks) + 1)
                 
-            sub_chunks = chunk_by_size(mod_files, base_dir, max_words, no_extract=no_extract)
+            sub_chunks = chunk_by_size(mod_files, base_dir, max_words, no_extract=no_extract, word_counts=word_counts)
             for sc in sub_chunks:
                 sc.index = current_chunk.index
                 chunks.append(sc)
@@ -138,8 +144,10 @@ def chunk_by_semantic(files: List[str], base_dir: str, max_words: int, no_extrac
         
     return chunks
 
-def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False) -> str:
+def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False, text_overrides: Dict[str, str] = None) -> str:
     """Read a source file from disk, stripping HTML markup if applicable."""
+    if text_overrides and cf.relative_path in text_overrides:
+        return text_overrides[cf.relative_path]
     true_filepath = os.path.join(base_dir, cf.relative_path)
     try:
         with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
@@ -154,7 +162,7 @@ def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False)
         return f"[Excluded unreadable blob: {e}]"
 
 
-def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False):
+def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
     """Write a chunk as plain text (no markdown or HTML markup)."""
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
@@ -168,10 +176,10 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
             if i > 0:
                 f.write("\n\n")
             f.write(f"=== SOURCE: {cf.relative_path} ===\n\n")
-            f.write(_read_source_content(base_dir, cf, no_extract=no_extract))
+            f.write(_read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides))
 
 
-def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False):
+def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
             f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
@@ -185,21 +193,24 @@ def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_i
                 f.write("\n\n")
             f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
 
-            # Fetch text content inside try catch
-            true_filepath = os.path.join(base_dir, cf.relative_path)
-            try:
-                with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
-                    content = source_f.read()
-                    if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
-                        if not no_extract:
-                            content = extract_content(content)
-                        content = strip_html(content)
-                    f.write(content)
-            except Exception as e:
-                logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
-                f.write(f"<!-- Excluded unreadable blob: {e} -->")
+            if text_overrides and cf.relative_path in text_overrides:
+                f.write(text_overrides[cf.relative_path])
+            else:
+                # Fetch text content inside try catch
+                true_filepath = os.path.join(base_dir, cf.relative_path)
+                try:
+                    with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
+                        content = source_f.read()
+                        if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
+                            if not no_extract:
+                                content = extract_content(content)
+                            content = strip_html(content)
+                        f.write(content)
+                except Exception as e:
+                    logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
+                    f.write(f"<!-- Excluded unreadable blob: {e} -->")
 
-def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False):
+def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
     root = ET.Element("chunk", index=str(chunk.index), total=str(total_chunks))
 
     if with_index:
@@ -219,20 +230,25 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
         placeholder = f"__CDATA_PLACEHOLDER_{i}__"
         source_elem.text = placeholder
 
-        true_filepath = os.path.join(base_dir, cf.relative_path)
-        try:
-            with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
-                content = source_f.read()
-                if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
-                    if not no_extract:
-                        content = extract_content(content)
-                    content = strip_html(content)
-                # Escape CDATA end marker ']]>' -> ']]]]><![CDATA[>'
-                content = content.replace("]]>", "]]]]><![CDATA[>")
-                source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
-        except Exception as e:
-            logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
-            source_contents[placeholder] = f"\n<!-- Excluded unreadable blob: {e} -->\n"
+        if text_overrides and cf.relative_path in text_overrides:
+            content = text_overrides[cf.relative_path]
+            content = content.replace("]]>", "]]]]><![CDATA[>")
+            source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
+        else:
+            true_filepath = os.path.join(base_dir, cf.relative_path)
+            try:
+                with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
+                    content = source_f.read()
+                    if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
+                        if not no_extract:
+                            content = extract_content(content)
+                        content = strip_html(content)
+                    # Escape CDATA end marker ']]>' -> ']]]]><![CDATA[>'
+                    content = content.replace("]]>", "]]]]><![CDATA[>")
+                    source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
+            except Exception as e:
+                logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
+                source_contents[placeholder] = f"\n<!-- Excluded unreadable blob: {e} -->\n"
 
     # Generate XML string
     rough_string = ET.tostring(root, 'utf-8', xml_declaration=True).decode('utf-8')
@@ -245,7 +261,7 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
         f.write(rough_string)
 
 
-def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False) -> List[str]:
+def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None) -> List[str]:
     """Flush chunk classes out as disk files with or without headings."""
     os.makedirs(output_dir, exist_ok=True)
     generated_paths = []
@@ -257,10 +273,10 @@ def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: st
         generated_paths.append(out_filepath)
 
         if fmt == "xml":
-            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract)
+            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
         elif fmt == "txt":
-            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract)
+            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
         else:
-            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract)
+            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
 
     return generated_paths
