@@ -162,24 +162,77 @@ def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False,
         return f"[Excluded unreadable blob: {e}]"
 
 
-def _format_file_header(cf: ChunkFile, heading_map: Dict = None) -> str:
-    """Format per-file header with optional context from heading_map."""
-    if heading_map is not None and cf.relative_path in heading_map:
-        from ..utils.heading_extractor import get_active_headings, format_context_header
-        headings = heading_map[cf.relative_path]
-        if headings:
-            # Use the last heading's offset to capture the full hierarchy
-            last_offset = headings[-1].char_offset
-            active = get_active_headings(headings, last_offset)
-        else:
-            active = []
-        header = format_context_header(active_headings=active, source_path=cf.relative_path)
-        if header:
-            return header
-    return ""
+def _split_text_by_words(text: str, max_words: int) -> list:
+    """Split text into sub-chunks at paragraph (\\n\\n) boundaries.
+
+    Returns list of (text, char_offset) tuples where char_offset is the
+    position of the sub-chunk's start in the original text.
+    """
+    if not text or max_words <= 0:
+        return [(text or "", 0)]
+
+    paragraphs = text.split("\n\n")
+    result = []
+    current_parts = []
+    current_words = 0
+    char_pos = 0
+    chunk_start = 0
+
+    for idx, para in enumerate(paragraphs):
+        para_words = len(para.split())
+
+        if current_words + para_words > max_words and current_parts:
+            result.append(("\n\n".join(current_parts), chunk_start))
+            chunk_start = char_pos
+            current_parts = []
+            current_words = 0
+
+        current_parts.append(para)
+        current_words += para_words
+        char_pos += len(para)
+        if idx < len(paragraphs) - 1:
+            char_pos += 2  # \n\n separator
+
+    if current_parts:
+        result.append(("\n\n".join(current_parts), chunk_start))
+
+    return result if result else [("", 0)]
 
 
-def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
+def _write_file_with_context(f, cf: ChunkFile, content: str, headings: list, max_words: int):
+    """Write a file's content with per-sub-chunk context headers.
+
+    Splits the content at paragraph boundaries respecting max_words,
+    computes the active heading hierarchy for each sub-chunk, and
+    writes the context header before each piece.
+    """
+    from ..utils.heading_extractor import get_active_headings, format_context_header
+
+    if headings and max_words > 0:
+        sub_chunks = _split_text_by_words(content, max_words)
+    else:
+        sub_chunks = [(content, 0)]
+
+    total_sub = len(sub_chunks)
+    for j, (sub_text, char_offset) in enumerate(sub_chunks):
+        if j > 0:
+            f.write("\n\n")
+        active = get_active_headings(headings, char_offset) if headings else []
+        # For the first sub-chunk, if no headings found at offset 0 (due to
+        # leading whitespace), look ahead to the first heading's position
+        if not active and headings and j == 0:
+            active = get_active_headings(headings, headings[0].char_offset)
+        header = format_context_header(
+            active_headings=active,
+            source_path=cf.relative_path,
+            chunk_index=j + 1,
+            total_chunks=total_sub,
+        )
+        f.write(header)
+        f.write(sub_text)
+
+
+def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
     """Write a chunk as plain text (no markdown or HTML markup)."""
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
@@ -192,15 +245,16 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
         for i, cf in enumerate(chunk.files):
             if i > 0:
                 f.write("\n\n")
-            ctx_header = _format_file_header(cf, heading_map)
-            if ctx_header:
-                f.write(ctx_header)
+            content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
+
+            if heading_map is not None and cf.relative_path in heading_map:
+                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words)
             else:
                 f.write(f"=== SOURCE: {cf.relative_path} ===\n\n")
-            f.write(_read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides))
+                f.write(content)
 
 
-def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
+def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
             f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
@@ -212,30 +266,15 @@ def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_i
         for i, cf in enumerate(chunk.files):
             if i > 0:
                 f.write("\n\n")
-            ctx_header = _format_file_header(cf, heading_map)
-            if ctx_header:
-                f.write(ctx_header)
+            content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
+
+            if heading_map is not None and cf.relative_path in heading_map:
+                _write_file_with_context(f, cf, content, heading_map[cf.relative_path], max_words)
             else:
                 f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
+                f.write(content)
 
-            if text_overrides and cf.relative_path in text_overrides:
-                f.write(text_overrides[cf.relative_path])
-            else:
-                # Fetch text content inside try catch
-                true_filepath = os.path.join(base_dir, cf.relative_path)
-                try:
-                    with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
-                        content = source_f.read()
-                        if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
-                            if not no_extract:
-                                content = extract_content(content)
-                            content = strip_html(content)
-                        f.write(content)
-                except Exception as e:
-                    logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
-                    f.write(f"<!-- Excluded unreadable blob: {e} -->")
-
-def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
+def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0):
     root = ET.Element("chunk", index=str(chunk.index), total=str(total_chunks))
 
     if with_index:
@@ -247,55 +286,57 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
             ET.SubElement(files_elem, "file", path=cf.relative_path, words=str(cf.word_count))
 
     sources = ET.SubElement(root, "sources")
-    # For CDATA handling, we'll build the base XML string and manually insert CDATA tags
-    # First, let's create placeholders
     source_contents = {}
+    placeholder_idx = 0
+
     for i, cf in enumerate(chunk.files):
-        attrs = {"path": cf.relative_path}
+        content = _read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides)
+
         if heading_map is not None and cf.relative_path in heading_map:
             from ..utils.heading_extractor import get_active_headings
             headings = heading_map[cf.relative_path]
-            if headings:
-                last_offset = headings[-1].char_offset
-                active = get_active_headings(headings, last_offset)
+
+            if headings and max_words > 0:
+                sub_chunks = _split_text_by_words(content, max_words)
+            else:
+                sub_chunks = [(content, 0)]
+
+            total_sub = len(sub_chunks)
+            for j, (sub_text, char_offset) in enumerate(sub_chunks):
+                attrs = {"path": cf.relative_path}
+                active = get_active_headings(headings, char_offset) if headings else []
+                if not active and headings and j == 0:
+                    active = get_active_headings(headings, headings[0].char_offset)
                 if active:
                     attrs["context"] = " > ".join(h.text for h in active)
-        source_elem = ET.SubElement(sources, "source", **attrs)
-        placeholder = f"__CDATA_PLACEHOLDER_{i}__"
-        source_elem.text = placeholder
-
-        if text_overrides and cf.relative_path in text_overrides:
-            content = text_overrides[cf.relative_path]
-            content = content.replace("]]>", "]]]]><![CDATA[>")
-            source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
+                if total_sub > 1:
+                    attrs["part"] = f"{j + 1}/{total_sub}"
+                source_elem = ET.SubElement(sources, "source", **attrs)
+                placeholder = f"__CDATA_PLACEHOLDER_{placeholder_idx}__"
+                placeholder_idx += 1
+                source_elem.text = placeholder
+                escaped = sub_text.replace("]]>", "]]]]><![CDATA[>")
+                source_contents[placeholder] = f"\n<![CDATA[\n{escaped}\n]]>\n"
         else:
-            true_filepath = os.path.join(base_dir, cf.relative_path)
-            try:
-                with open(true_filepath, 'r', encoding='utf-8', errors='replace') as source_f:
-                    content = source_f.read()
-                    if cf.relative_path.lower().endswith('.html') or cf.relative_path.lower().endswith('.htm'):
-                        if not no_extract:
-                            content = extract_content(content)
-                        content = strip_html(content)
-                    # Escape CDATA end marker ']]>' -> ']]]]><![CDATA[>'
-                    content = content.replace("]]>", "]]]]><![CDATA[>")
-                    source_contents[placeholder] = f"\n<![CDATA[\n{content}\n]]>\n"
-            except Exception as e:
-                logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
-                source_contents[placeholder] = f"\n<!-- Excluded unreadable blob: {e} -->\n"
+            source_elem = ET.SubElement(sources, "source", path=cf.relative_path)
+            placeholder = f"__CDATA_PLACEHOLDER_{placeholder_idx}__"
+            placeholder_idx += 1
+            source_elem.text = placeholder
+            escaped = content.replace("]]>", "]]]]><![CDATA[>")
+            source_contents[placeholder] = f"\n<![CDATA[\n{escaped}\n]]>\n"
 
     # Generate XML string
     rough_string = ET.tostring(root, 'utf-8', xml_declaration=True).decode('utf-8')
-    
+
     # Replace placeholders with manual CDATA blocks
     for placeholder, cdata_content in source_contents.items():
         rough_string = rough_string.replace(placeholder, cdata_content)
-        
+
     with open(out_filepath, 'w', encoding='utf-8') as f:
         f.write(rough_string)
 
 
-def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None) -> List[str]:
+def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0) -> List[str]:
     """Flush chunk classes out as disk files with or without headings."""
     os.makedirs(output_dir, exist_ok=True)
     generated_paths = []
@@ -307,10 +348,10 @@ def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: st
         generated_paths.append(out_filepath)
 
         if fmt == "xml":
-            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
+            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
         elif fmt == "txt":
-            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
+            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
         else:
-            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
+            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map, max_words=max_words)
 
     return generated_paths

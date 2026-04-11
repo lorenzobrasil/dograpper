@@ -173,6 +173,11 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         from ..utils.content_extractor import extract_content as _extract_ctx
 
         heading_map = {}
+        # Initialize text_overrides if not already set by dedup, so the writer
+        # uses the same text from which heading offsets were calculated.
+        if dedup_text_overrides is None:
+            dedup_text_overrides = {}
+
         for fpath in filtered_paths:
             rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
             if fpath.lower().endswith(('.html', '.htm')):
@@ -182,13 +187,14 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
                     if not no_ext:
                         raw = _extract_ctx(raw)
                     doc = extract_with_headings(raw, source_path=rel)
-                    if doc.headings:
-                        heading_map[rel] = doc.headings
-                        logger.debug(f"[context] {rel}: {len(doc.headings)} headings extracted")
+                    heading_map[rel] = doc.headings
+                    # Use doc.text for consistent offsets (only if dedup didn't override)
+                    if rel not in dedup_text_overrides:
+                        dedup_text_overrides[rel] = doc.text
+                    logger.debug(f"[context] {rel}: {len(doc.headings)} headings extracted")
                 except Exception:
-                    pass
+                    heading_map[rel] = []
             else:
-                # Non-HTML files get an empty heading list (source-only header)
                 heading_map[rel] = []
 
     # 8. Execute chunking
@@ -276,7 +282,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         return
 
     # 10. Write outputs
-    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map)
+    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map, max_words=max_w)
     
     # 10. Token counting (opt-in)
     token_counts = []
