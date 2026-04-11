@@ -54,8 +54,11 @@ logger = logging.getLogger(__name__)
                    "'both' aplica ambos.")
 @click.option('--dedup-threshold', type=int, default=3, show_default=True,
               help="Distância de Hamming máxima para dedup fuzzy (0-10). Menor = mais conservador.")
+@click.option('--context-header', is_flag=True, default=False,
+              help="Injeta cabeçalho de contexto (source, breadcrumb de headings) "
+                   "no topo de cada arquivo dentro do chunk para melhorar a ingestão por LLMs.")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -93,6 +96,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'dry_run': dry_run,
         'dedup': dedup,
         'dedup_threshold': dedup_threshold,
+        'context_header': context_header,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -112,6 +116,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     is_dry_run = merged_params.get('dry_run', dry_run)
     dedup_mode = merged_params.get('dedup', dedup)
     dedup_thresh = merged_params.get('dedup_threshold', dedup_threshold)
+    ctx_header = merged_params.get('context_header', context_header)
 
     # 3. List all files
     all_files = []
@@ -160,6 +165,31 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         dedup_stats = dedup_result.stats
         dedup_word_counts = {rp: len(t.split()) for rp, t in dedup_result.texts.items()}
         dedup_text_overrides = dedup_result.texts
+
+    # 7b. Extract headings for context-header (opt-in, before chunking)
+    heading_map = None
+    if ctx_header:
+        from ..utils.heading_extractor import extract_with_headings
+        from ..utils.content_extractor import extract_content as _extract_ctx
+
+        heading_map = {}
+        for fpath in filtered_paths:
+            rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
+            if fpath.lower().endswith(('.html', '.htm')):
+                try:
+                    with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                        raw = fh.read()
+                    if not no_ext:
+                        raw = _extract_ctx(raw)
+                    doc = extract_with_headings(raw, source_path=rel)
+                    if doc.headings:
+                        heading_map[rel] = doc.headings
+                        logger.debug(f"[context] {rel}: {len(doc.headings)} headings extracted")
+                except Exception:
+                    pass
+            else:
+                # Non-HTML files get an empty heading list (source-only header)
+                heading_map[rel] = []
 
     # 8. Execute chunking
     if strat == 'semantic':
@@ -246,7 +276,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         return
 
     # 10. Write outputs
-    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides)
+    write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map)
     
     # 10. Token counting (opt-in)
     token_counts = []

@@ -162,7 +162,24 @@ def _read_source_content(base_dir: str, cf: ChunkFile, no_extract: bool = False,
         return f"[Excluded unreadable blob: {e}]"
 
 
-def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
+def _format_file_header(cf: ChunkFile, heading_map: Dict = None) -> str:
+    """Format per-file header with optional context from heading_map."""
+    if heading_map is not None and cf.relative_path in heading_map:
+        from ..utils.heading_extractor import get_active_headings, format_context_header
+        headings = heading_map[cf.relative_path]
+        if headings:
+            # Use the first heading's offset to capture the file's top-level context
+            first_offset = headings[0].char_offset
+            active = get_active_headings(headings, first_offset)
+        else:
+            active = []
+        header = format_context_header(active_headings=active, source_path=cf.relative_path)
+        if header:
+            return header
+    return ""
+
+
+def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
     """Write a chunk as plain text (no markdown or HTML markup)."""
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
@@ -175,11 +192,15 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
         for i, cf in enumerate(chunk.files):
             if i > 0:
                 f.write("\n\n")
-            f.write(f"=== SOURCE: {cf.relative_path} ===\n\n")
+            ctx_header = _format_file_header(cf, heading_map)
+            if ctx_header:
+                f.write(ctx_header)
+            else:
+                f.write(f"=== SOURCE: {cf.relative_path} ===\n\n")
             f.write(_read_source_content(base_dir, cf, no_extract=no_extract, text_overrides=text_overrides))
 
 
-def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
+def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
             f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
@@ -191,7 +212,11 @@ def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_i
         for i, cf in enumerate(chunk.files):
             if i > 0:
                 f.write("\n\n")
-            f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
+            ctx_header = _format_file_header(cf, heading_map)
+            if ctx_header:
+                f.write(ctx_header)
+            else:
+                f.write(f"<!-- SOURCE: {cf.relative_path} -->\n\n")
 
             if text_overrides and cf.relative_path in text_overrides:
                 f.write(text_overrides[cf.relative_path])
@@ -210,7 +235,7 @@ def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_i
                     logger.error(f"Failed to copy contents of {cf.relative_path}: {e}")
                     f.write(f"<!-- Excluded unreadable blob: {e} -->")
 
-def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None):
+def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None):
     root = ET.Element("chunk", index=str(chunk.index), total=str(total_chunks))
 
     if with_index:
@@ -226,7 +251,16 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
     # First, let's create placeholders
     source_contents = {}
     for i, cf in enumerate(chunk.files):
-        source_elem = ET.SubElement(sources, "source", path=cf.relative_path)
+        attrs = {"path": cf.relative_path}
+        if heading_map is not None and cf.relative_path in heading_map:
+            from ..utils.heading_extractor import get_active_headings
+            headings = heading_map[cf.relative_path]
+            if headings:
+                first_offset = headings[0].char_offset
+                active = get_active_headings(headings, first_offset)
+                if active:
+                    attrs["context"] = " > ".join(h.text for h in active)
+        source_elem = ET.SubElement(sources, "source", **attrs)
         placeholder = f"__CDATA_PLACEHOLDER_{i}__"
         source_elem.text = placeholder
 
@@ -261,7 +295,7 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
         f.write(rough_string)
 
 
-def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None) -> List[str]:
+def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: str, format: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None) -> List[str]:
     """Flush chunk classes out as disk files with or without headings."""
     os.makedirs(output_dir, exist_ok=True)
     generated_paths = []
@@ -273,10 +307,10 @@ def write_chunks(chunks: List[Chunk], base_dir: str, output_dir: str, prefix: st
         generated_paths.append(out_filepath)
 
         if fmt == "xml":
-            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
+            _write_chunk_xml(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
         elif fmt == "txt":
-            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
+            _write_chunk_text(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
         else:
-            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides)
+            _write_chunk_markdown(chunk, base_dir, out_filepath, with_index, total_chunks, no_extract=no_extract, text_overrides=text_overrides, heading_map=heading_map)
 
     return generated_paths

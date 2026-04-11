@@ -118,6 +118,7 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--dry-run` | — | `false` | Simula o pack sem escrever arquivos; exibe relatório de compressão e projeção |
 | `--dedup` | — | `off` | Deduplicação de blocos: `off`, `exact`, `fuzzy`, `both` |
 | `--dedup-threshold` | — | `3` | Distância de Hamming máxima para dedup fuzzy (0-10) |
+| `--context-header` | — | `false` | Injeta cabeçalho de contexto (source + breadcrumb de headings) por arquivo no chunk |
 
 **Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
 
@@ -129,6 +130,8 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em headings curtos. A primeira ocorrência (ordem alfabética de arquivo) é sempre preservada.
 
 **Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe um relatório completo com contagem de arquivos, palavras (bruto vs. extraído vs. pós-dedup), projeção de chunks, top 10 arquivos por tamanho, e warnings de oversize. Útil para calibrar parâmetros antes de empacotar.
+
+**Cabeçalho de contexto** (`--context-header`): injeta metadados de origem no topo de cada arquivo dentro do chunk, ancorando o conteúdo na estrutura da documentação original. Para arquivos HTML, extrai a hierarquia de headings (h1 > h2 > h3) e formata como breadcrumb. Para arquivos não-HTML, inclui apenas o caminho de origem. O cabeçalho usa comentários HTML (`<!-- -->`) que são invisíveis quando renderizados como Markdown mas legíveis por LLMs. As palavras do cabeçalho não contam para o limite de `--max-words-per-chunk`.
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
@@ -174,6 +177,12 @@ dograpper pack ./rust-docs -o ./chunks --dedup both --dedup-threshold 2
 
 # Dry-run com dedup e tokens para calibrar parâmetros
 dograpper pack ./rust-docs -o ./chunks --dedup both --show-tokens --dry-run
+
+# Com cabeçalho de contexto (breadcrumb de headings por arquivo)
+dograpper pack ./rust-docs -o ./chunks --context-header
+
+# Combo: dedup + contexto + tokens
+dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --show-tokens
 ```
 
 ### Flags globais
@@ -328,6 +337,7 @@ src/dograpper/
     ├── content_extractor.py # Extração inteligente de conteúdo HTML (remove boilerplate)
     ├── dedup.py            # Deduplicação cross-file (exact MD5 + fuzzy SimHash)
     ├── dry_run_report.py   # Relatório de simulação do pack (--dry-run)
+    ├── heading_extractor.py # Extração de headings HTML para cabeçalho de contexto
     ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
     ├── logger.py           # Setup de logging
     ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)

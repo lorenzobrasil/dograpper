@@ -38,6 +38,7 @@ src/dograpper/
     ├── content_extractor.py # extract_content() — extração inteligente de HTML (semantic containers, density scoring, blacklist)
     ├── dedup.py            # deduplicate() — dedup cross-file via MD5 (exact) e SimHash (fuzzy)
     ├── dry_run_report.py   # generate_report() — relatório formatado para --dry-run
+    ├── heading_extractor.py # extract_with_headings(), get_active_headings(), format_context_header()
     ├── logger.py           # setup_logger() com suporte a verbose/quiet
     ├── html_stripper.py    # strip_html() via html.parser, descarta script/style, emite \n\n entre blocos HTML
     ├── token_counter.py    # count_tokens() — tiktoken opcional, fallback estimativa palavras→tokens
@@ -47,6 +48,7 @@ tests/
 ├── test_config.py          # Precedência, JSON inválido, arquivo ausente
 ├── test_content_extractor.py # Extração inteligente: semantic, density, blacklist, edge cases, CLI
 ├── test_dedup.py           # Dedup: _split_blocks, _simhash, _hamming_distance, exact/fuzzy/both, CLI
+├── test_heading_extractor.py # Heading extraction, active headings, context header, CLI integration
 ├── test_download.py        # wget mock, SPA detector, manifest roundtrip
 ├── test_dry_run.py         # Dry-run: report generation, CLI integration, edge cases
 ├── test_e2e.py             # Integração ponta-a-ponta usando ./test-docs
@@ -82,6 +84,7 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `tests/test_token_counter.py` | Antes de alterar `utils/token_counter.py` |
 | `tests/test_dedup.py` | Antes de alterar `utils/dedup.py` ou a integração de dedup em `commands/pack.py` |
 | `tests/test_dry_run.py` | Antes de alterar `utils/dry_run_report.py` ou a lógica de dry-run em `commands/pack.py` |
+| `tests/test_heading_extractor.py` | Antes de alterar `utils/heading_extractor.py` ou a lógica de context-header em `commands/pack.py` |
 
 ## Regras críticas
 
