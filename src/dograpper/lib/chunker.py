@@ -168,9 +168,9 @@ def _format_file_header(cf: ChunkFile, heading_map: Dict = None) -> str:
         from ..utils.heading_extractor import get_active_headings, format_context_header
         headings = heading_map[cf.relative_path]
         if headings:
-            # Use the first heading's offset to capture the file's top-level context
-            first_offset = headings[0].char_offset
-            active = get_active_headings(headings, first_offset)
+            # Use the last heading's offset to capture the full hierarchy
+            last_offset = headings[-1].char_offset
+            active = get_active_headings(headings, last_offset)
         else:
             active = []
         header = format_context_header(active_headings=active, source_path=cf.relative_path)
@@ -256,8 +256,8 @@ def _write_chunk_xml(chunk: Chunk, base_dir: str, out_filepath: str, with_index:
             from ..utils.heading_extractor import get_active_headings
             headings = heading_map[cf.relative_path]
             if headings:
-                first_offset = headings[0].char_offset
-                active = get_active_headings(headings, first_offset)
+                last_offset = headings[-1].char_offset
+                active = get_active_headings(headings, last_offset)
                 if active:
                     attrs["context"] = " > ".join(h.text for h in active)
         source_elem = ET.SubElement(sources, "source", **attrs)
