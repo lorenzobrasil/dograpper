@@ -57,8 +57,11 @@ logger = logging.getLogger(__name__)
 @click.option('--context-header', is_flag=True, default=False,
               help="Injeta cabeçalho de contexto (source, breadcrumb de headings) "
                    "no topo de cada arquivo dentro do chunk para melhorar a ingestão por LLMs.")
+@click.option('--cross-refs', is_flag=True, default=False,
+              help="Gera cross_refs.json com referências cruzadas entre chunks "
+                   "e anota o texto dos chunks com ponteiros [-> chunk_id].")
 @click.pass_context
-def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool):
+def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool):
     """Agrega arquivos baixados em chunks com contagem de palavras controlada.
 
     Percorre `INPUT_DIR`, aplica regras de exclusão (`.docsignore` +
@@ -97,6 +100,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         'dedup': dedup,
         'dedup_threshold': dedup_threshold,
         'context_header': context_header,
+        'cross_refs': cross_refs,
     }
     
     merged_params = load_config(config_path, 'pack', cli_params, ctx)
@@ -117,6 +121,7 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     dedup_mode = merged_params.get('dedup', dedup)
     dedup_thresh = merged_params.get('dedup_threshold', dedup_threshold)
     ctx_header = merged_params.get('context_header', context_header)
+    do_cross_refs = merged_params.get('cross_refs', cross_refs)
 
     # 3. List all files
     all_files = []
@@ -283,8 +288,71 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
 
     # 10. Write outputs
     write_chunks(chunks, input_dir, output_dir, pref, fmt, w_index, generated_chunk_count, no_extract=no_ext, text_overrides=dedup_text_overrides, heading_map=heading_map, max_words=max_w)
-    
-    # 10. Token counting (opt-in)
+
+    # 10a. Cross-references (opt-in, after write)
+    cross_ref_total = 0
+    cross_ref_unresolved = 0
+    if do_cross_refs:
+        import json as _json
+        from ..utils.link_extractor import extract_links, build_cross_ref_index, annotate_cross_refs
+
+        # Build file_to_chunk map
+        file_to_chunk = {}
+        for chunk in chunks:
+            chunk_id = f"{pref}{chunk.index:02d}"
+            for cf in chunk.files:
+                file_to_chunk[cf.relative_path] = chunk_id
+
+        # Extract links from all HTML files
+        all_links = []
+        for fpath in filtered_paths:
+            if not fpath.lower().endswith(('.html', '.htm')):
+                continue
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='replace') as fh:
+                    raw_html = fh.read()
+            except Exception:
+                continue
+            rel = os.path.relpath(fpath, input_dir).replace(os.sep, '/')
+            file_links = extract_links(raw_html, rel)
+            all_links.extend(file_links)
+
+        # Build index and write JSON
+        cross_index = build_cross_ref_index(all_links, file_to_chunk)
+        cross_ref_total = sum(
+            len(entry.get("links", []))
+            for key, entry in cross_index.items()
+            if key != "unresolved"
+        )
+        cross_ref_unresolved = len(cross_index.get("unresolved", []))
+
+        cross_refs_path = os.path.join(output_dir, "cross_refs.json")
+        with open(cross_refs_path, 'w', encoding='utf-8') as jf:
+            _json.dump(cross_index, jf, indent=2, ensure_ascii=False)
+
+        # Annotate written chunk files
+        for chunk in chunks:
+            chunk_id = f"{pref}{chunk.index:02d}"
+            chunk_filename = f"{chunk_id}.{fmt}"
+            chunk_filepath = os.path.join(output_dir, chunk_filename)
+            # Collect links whose source files are in this chunk
+            chunk_links = [
+                lnk for lnk in all_links
+                if file_to_chunk.get(lnk.source_path) == chunk_id
+            ]
+            if not chunk_links:
+                continue
+            try:
+                with open(chunk_filepath, 'r', encoding='utf-8', errors='replace') as cf:
+                    chunk_text = cf.read()
+                annotated = annotate_cross_refs(chunk_text, chunk_links, file_to_chunk)
+                if annotated != chunk_text:
+                    with open(chunk_filepath, 'w', encoding='utf-8') as cf:
+                        cf.write(annotated)
+            except Exception as e:
+                logger.warning(f"Failed to annotate cross-refs for {chunk_filename}: {e}")
+
+    # 10b. Token counting (opt-in)
     token_counts = []
     if s_tokens:
         from ..utils.token_counter import count_tokens, format_token_summary
@@ -338,6 +406,9 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
         click.echo(f"  Palavras removidas: {dedup_stats.words_removed:,} (~{pct}%)".replace(',', '.'))
 
     click.echo(f"  Output:          {output_dir}/")
+
+    if do_cross_refs:
+        click.echo(f"  Cross-refs:        {output_dir}/cross_refs.json ({cross_ref_total} links, {cross_ref_unresolved} unresolved)")
 
     if token_counts:
         from ..utils.token_counter import format_token_summary

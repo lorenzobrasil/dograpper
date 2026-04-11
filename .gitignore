@@ -1,5 +1,5 @@
 environments/
-temporario/
+temporario/**
 # Environments
 .env
 .venv

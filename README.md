@@ -119,6 +119,7 @@ dograpper pack <diretório_input> -o <diretório_output> [opções]
 | `--dedup` | — | `off` | Deduplicação de blocos: `off`, `exact`, `fuzzy`, `both` |
 | `--dedup-threshold` | — | `3` | Distância de Hamming máxima para dedup fuzzy (0-10) |
 | `--context-header` | — | `false` | Injeta cabeçalho de contexto (source + breadcrumb de headings) por arquivo no chunk |
+| `--cross-refs` | — | `false` | Gera `cross_refs.json` com referências cruzadas e anota chunks com ponteiros `[-> chunk_id]` |
 
 **Extração inteligente** (ativa por padrão): antes de empacotar, o dograpper extrai apenas o conteúdo principal de cada HTML (usando `<main>`, `<article>`, ou scoring por densidade), removendo boilerplate como navbars, sidebars, footers, breadcrumbs, botões "copy to clipboard", banners de versão, etc. Use `--no-extract` para manter o HTML integral (comportamento legado).
 
@@ -132,6 +133,8 @@ Blocos com menos de 10 palavras são ignorados para evitar falsos positivos em h
 **Dry-run** (`--dry-run`): simula o pack sem escrever nenhum arquivo. Exibe um relatório completo com contagem de arquivos, palavras (bruto vs. extraído vs. pós-dedup), projeção de chunks, top 10 arquivos por tamanho, e warnings de oversize. Útil para calibrar parâmetros antes de empacotar.
 
 **Cabeçalho de contexto** (`--context-header`): injeta metadados de origem no topo de cada arquivo dentro do chunk, ancorando o conteúdo na estrutura da documentação original. Para arquivos HTML, extrai a hierarquia de headings (h1 > h2 > h3) e formata como breadcrumb. Para arquivos não-HTML, inclui apenas o caminho de origem. O cabeçalho usa comentários HTML (`<!-- -->`) que são invisíveis quando renderizados como Markdown mas legíveis por LLMs. As palavras do cabeçalho não contam para o limite de `--max-words-per-chunk`.
+
+**Referências cruzadas** (`--cross-refs`): extrai links internos (`<a href="...">`) de arquivos HTML, resolve caminhos relativos, mapeia cada link para o chunk de destino e gera um arquivo `cross_refs.json` no diretório de saída. O JSON contém, para cada chunk, listas de `references_to` (chunks referenciados), `referenced_by` (chunks que referenciam este) e `links` (detalhes de cada link). Links para arquivos fora do pack são listados em `unresolved`. Além disso, o texto dos chunks é anotado in-place com marcadores `[-> chunk_id]` após a primeira ocorrência de cada link text, permitindo que LLMs naveguem entre chunks.
 
 **Estratégia `size`** (default): percorre os arquivos em ordem alfabética, acumulando por contagem de palavras. Abre um novo chunk ao atingir o limite.
 
@@ -183,6 +186,12 @@ dograpper pack ./rust-docs -o ./chunks --context-header
 
 # Combo: dedup + contexto + tokens
 dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --show-tokens
+
+# Referências cruzadas entre chunks
+dograpper pack ./rust-docs -o ./chunks --cross-refs
+
+# Combo completo: dedup + contexto + cross-refs + tokens
+dograpper pack ./rust-docs -o ./chunks --dedup both --context-header --cross-refs --show-tokens
 ```
 
 ### Flags globais
@@ -284,6 +293,12 @@ Com `--dedup`, linhas adicionais são exibidas:
   Palavras removidas: 256 (~1%)
 ```
 
+Com `--cross-refs`, uma linha adicional é exibida:
+
+```
+  Cross-refs:        ./chunks/cross_refs.json (42 links, 3 unresolved)
+```
+
 Com `--dry-run`, nenhum arquivo é escrito. Um relatório completo é exibido:
 
 ```
@@ -339,6 +354,7 @@ src/dograpper/
     ├── dry_run_report.py   # Relatório de simulação do pack (--dry-run)
     ├── heading_extractor.py # Extração de headings HTML para cabeçalho de contexto
     ├── html_stripper.py    # Conversão de HTML para texto puro (stdlib html.parser)
+    ├── link_extractor.py   # Extração de links internos e referências cruzadas entre chunks
     ├── logger.py           # Setup de logging
     ├── token_counter.py    # Contagem de tokens (tiktoken opcional, fallback estimativa)
     └── word_counter.py     # Contagem de palavras
