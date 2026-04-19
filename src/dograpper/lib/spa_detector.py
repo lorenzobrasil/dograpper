@@ -35,38 +35,55 @@ class VisibleTextParser(HTMLParser):
     def get_text(self) -> str:
         return " ".join(self.visible_text)
 
+SMALL_SAMPLE_N = 5
+
+
 def is_spa(directory: str, threshold: float = 0.7, min_text_chars: int = 200) -> bool:
-    """Analyze a directory of HTML files to check if they are mostly empty SPA shells."""
+    """Analyze a directory of HTML files to check if they are mostly empty SPA shells.
+
+    Small-sample branch: when `total_files < SMALL_SAMPLE_N` (typically the
+    Mintlify-style case where wget mirrors only the landing page), a single
+    empty shell is enough to trigger the SPA fallback — the `proportion >
+    threshold` statistical rule is unreliable at that sample size.
+    """
     html_files = []
-    
+
     for root, _, files in os.walk(directory):
         for f in files:
             if f.endswith('.html'):
                 html_files.append(os.path.join(root, f))
-                
+
     if not html_files:
         return False
-        
+
     empty_shells_count = 0
     total_files = len(html_files)
-    
+
     for html_file in html_files:
         try:
-            with open(html_file, 'r', encoding='utf-8') as f:
+            # errors='replace' because scraped HTML often contains
+            # invalid UTF-8 bytes (server-side mojibake, BOM quirks) — we
+            # must not crash SPA detection over decode errors.
+            with open(html_file, 'r', encoding='utf-8', errors='replace') as f:
                 content = f.read()
-                
+
             parser = VisibleTextParser()
             parser.feed(content)
-            
+
             text_len = len(parser.get_text())
-            
+
             if text_len < min_text_chars or parser.spa_id_found:
                 empty_shells_count += 1
-                
+
         except Exception as e:
             logger.debug(f"Error parsing {html_file}: {e}")
-            
-    logger.debug(f"SPA detection: {empty_shells_count}/{total_files} files are empty shells")
-    
+
+    logger.debug(
+        f"SPA detection: {empty_shells_count}/{total_files} files are empty shells"
+    )
+
+    if total_files < SMALL_SAMPLE_N:
+        return empty_shells_count > 0
+
     proportion = empty_shells_count / total_files
     return proportion > threshold

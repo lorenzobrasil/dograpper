@@ -24,10 +24,19 @@ def run_playwright_crawl(
     depth: int = 0,
     delay: int = 0,
     include_extensions: str = "html,md,txt",
-    manifest_data: Any = None
+    manifest_data: Any = None,
+    seed_urls: List[str] | None = None,
 ) -> CrawlResult:
-    """Crawl SPAs using playwright."""
-    
+    """Crawl SPAs using playwright.
+
+    Hydration is bounded (domcontentloaded 10s + a[href] wait 5s + 500ms grace,
+    worst-case 15.5s) to avoid the `networkidle`-pinned 30s stalls observed
+    against Mintlify-class SPAs.
+
+    `seed_urls` (optional) pre-seeds the crawl queue so the download cascade
+    can feed in URLs discovered by llms.txt/sitemap layers, skipping the
+    link-graph discovery phase entirely when we already know the targets.
+    """
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -35,9 +44,13 @@ def run_playwright_crawl(
 
     parsed_initial = urlparse(url)
     base_domain = parsed_initial.netloc
-    
+
     visited = set()
-    to_visit = [(url, 0)]
+    to_visit: List[tuple[str, int]] = [(url, 0)]
+    if seed_urls:
+        for seed in seed_urls:
+            if seed != url:
+                to_visit.append((seed, 0))
     files_downloaded = []
     errors = []
     files_skipped = 0
@@ -87,7 +100,16 @@ def run_playwright_crawl(
             logger.info(f"Downloading: {current_url}")
             
             try:
-                page.goto(current_url, wait_until="networkidle")
+                # Bounded hydration: 10s DOM + 5s selector wait + 500ms grace
+                # (worst case 15.5s). Replaces `networkidle` which can hang
+                # indefinitely on Mintlify-class SPAs whose RUM beacons keep
+                # the network busy.
+                page.goto(current_url, wait_until="domcontentloaded", timeout=10_000)
+                try:
+                    page.wait_for_selector("a[href]", timeout=5_000)
+                except Exception as hydrate_err:
+                    logger.debug(f"hydration: a[href] wait timed out for {current_url}: {hydrate_err}")
+                page.wait_for_timeout(500)
                 content = page.content()
                 
                 # Determine file path

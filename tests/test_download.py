@@ -1,7 +1,7 @@
 import os
 import json
 import tempfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import click
 
 from dograpper.lib.wget_mirror import run_wget_mirror
@@ -90,6 +90,102 @@ def test_wget_non_incremental():
         assert "--mirror" in args
         assert "--timestamping" not in args
 
+def test_wget_urls_uses_input_file_and_flags():
+    from dograpper.lib.wget_mirror import BROWSER_UA, run_wget_urls
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
+
+        with tempfile.TemporaryDirectory() as d:
+            res = run_wget_urls(
+                ["https://site.io/a", "https://site.io/b"],
+                d,
+                delay=500,
+                include_extensions="html,md",
+            )
+            assert res.success
+
+        # Last call must be the actual wget invocation (not the --version probe).
+        # Find the call whose argv starts with "wget" and contains "-i".
+        wget_calls = [c for c in mock_run.call_args_list if c[0] and c[0][0][0] == "wget" and "-i" in c[0][0]]
+        assert wget_calls, "no wget -i invocation captured"
+        args = wget_calls[-1][0][0]
+
+        # M-1: --no-parent required
+        assert "--no-parent" in args
+
+        # M-3: always --timestamping, never --no-clobber
+        assert "--timestamping" in args
+        assert "--no-clobber" not in args
+
+        # UA + Accept-Language
+        assert f"--user-agent={BROWSER_UA}" in args
+        assert any(a.startswith("--header=Accept-Language:") for a in args)
+
+        # -i URL-list
+        assert "-i" in args
+        i_idx = args.index("-i")
+        url_list_path = args[i_idx + 1]
+        assert url_list_path.endswith(".urls.txt")
+
+        # delay + extensions
+        assert "--wait=0.5" in args
+        assert "--accept=html,md" in args
+
+
+def test_wget_urls_empty_list_noops():
+    from dograpper.lib.wget_mirror import run_wget_urls
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+        with tempfile.TemporaryDirectory() as d:
+            res = run_wget_urls([], d)
+        assert res.success
+        assert res.files_downloaded == []
+        # No wget call should have been made at all
+        wget_calls = [c for c in mock_run.call_args_list if c[0] and c[0][0][0] == "wget"]
+        assert not wget_calls
+
+
+def test_wget_urls_partial_success_on_exit_8():
+    from dograpper.lib.wget_mirror import run_wget_urls
+    with patch('subprocess.run') as mock_run:
+        def side_effect(*args, **kwargs):
+            result = MagicMock()
+            # first call is --version probe, subsequent are the real run
+            if "--version" in args[0]:
+                result.returncode = 0
+            else:
+                result.returncode = 8
+            result.stdout = ""
+            result.stderr = ""
+            return result
+        mock_run.side_effect = side_effect
+
+        with tempfile.TemporaryDirectory() as d:
+            res = run_wget_urls(["https://site.io/a"], d)
+        assert res.success is True
+        assert any("Server error" in e for e in res.errors)
+
+
+def test_wget_mirror_passes_browser_ua():
+    from dograpper.lib.wget_mirror import BROWSER_UA
+    with patch('subprocess.run') as mock_run:
+        mock_run.return_value.returncode = 0
+
+        run_wget_mirror('http://example.com', './out')
+        args = mock_run.call_args[0][0]
+
+        assert f"--user-agent={BROWSER_UA}" in args
+        assert any(a.startswith("--header=Accept-Language:") for a in args)
+
+
+def test_wget_mirror_ua_includes_chrome():
+    from dograpper.lib.wget_mirror import BROWSER_UA
+    assert "Chrome/" in BROWSER_UA
+    assert "Mozilla/5.0" in BROWSER_UA
+
+
 def test_spa_detector_empty_shells():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create an empty shell HTML
@@ -97,6 +193,38 @@ def test_spa_detector_empty_shells():
             f.write('<html><body><div id="root"></div></body></html>')
             
         assert is_spa(temp_dir) is True
+
+def test_spa_detector_small_sample_any_shell_is_spa():
+    """N<5 branch: with few pages, a single empty shell flips the verdict to SPA."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with open(os.path.join(temp_dir, 'index.html'), 'w') as f:
+            f.write('<html><body><div id="root"></div></body></html>')
+        with open(os.path.join(temp_dir, 'page.html'), 'w') as f:
+            f.write(f'<html><body><p>{"B" * 300}</p></body></html>')
+        # 2 files, 1 empty shell, 1 real content. N<5 → any shell wins.
+        assert is_spa(temp_dir) is True
+
+
+def test_spa_detector_small_sample_all_real_is_not_spa():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for i in range(3):
+            with open(os.path.join(temp_dir, f'page{i}.html'), 'w') as f:
+                f.write(f'<html><body><p>{"X" * 300}</p></body></html>')
+        assert is_spa(temp_dir) is False
+
+
+def test_spa_detector_tolerates_invalid_utf8():
+    """Scraped HTML with invalid UTF-8 must not crash is_spa."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Write raw bytes that include invalid UTF-8 sequences alongside valid content.
+        path = os.path.join(temp_dir, 'bad.html')
+        with open(path, 'wb') as f:
+            f.write(b'<html><body><p>')
+            f.write(b'\xff\xfe\x80\x81')
+            f.write(b'' + (b'A' * 300) + b'</p></body></html>')
+        # Must not raise; real text present → not SPA (small sample, 0 shells).
+        assert is_spa(temp_dir) is False
+
 
 def test_spa_detector_real_content():
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -201,6 +329,97 @@ def test_playwright_skips_cached():
         del sys.modules['playwright']
         del sys.modules['playwright.sync_api']
 
+def test_playwright_bounded_hydration_uses_selector_wait():
+    """Verify bounded-hydration ordering: goto → wait_for_selector('a[href]') → 500ms grace."""
+    import sys
+    from unittest.mock import MagicMock
+
+    mock_playwright = MagicMock()
+    mock_sync_api = MagicMock()
+    mock_sync = mock_sync_api.sync_playwright
+    mock_p = mock_sync.return_value.__enter__.return_value
+    mock_page = mock_p.chromium.launch.return_value.new_context.return_value.new_page.return_value
+    mock_page.content.return_value = "<html><body>hi</body></html>"
+    mock_page.evaluate.return_value = []
+
+    sys.modules['playwright'] = mock_playwright
+    sys.modules['playwright.sync_api'] = mock_sync_api
+
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            from dograpper.lib.playwright_crawl import run_playwright_crawl
+            run_playwright_crawl("http://target.com", d)
+
+            mock_page.goto.assert_called_with(
+                "http://target.com", wait_until="domcontentloaded", timeout=10_000
+            )
+            mock_page.wait_for_selector.assert_called_with("a[href]", timeout=5_000)
+            mock_page.wait_for_timeout.assert_called_with(500)
+    finally:
+        del sys.modules['playwright']
+        del sys.modules['playwright.sync_api']
+
+
+def test_playwright_hydration_ignores_selector_timeout():
+    """wait_for_selector timeout must not abort the crawl — page.content still collected."""
+    import sys
+    from unittest.mock import MagicMock
+
+    mock_playwright = MagicMock()
+    mock_sync_api = MagicMock()
+    mock_sync = mock_sync_api.sync_playwright
+    mock_p = mock_sync.return_value.__enter__.return_value
+    mock_page = mock_p.chromium.launch.return_value.new_context.return_value.new_page.return_value
+    mock_page.content.return_value = "<html><body>content</body></html>"
+    mock_page.evaluate.return_value = []
+    mock_page.wait_for_selector.side_effect = Exception("Timeout 5000ms")
+
+    sys.modules['playwright'] = mock_playwright
+    sys.modules['playwright.sync_api'] = mock_sync_api
+
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            from dograpper.lib.playwright_crawl import run_playwright_crawl
+            res = run_playwright_crawl("http://target.com", d)
+            assert res.success is True
+            assert mock_page.content.called
+    finally:
+        del sys.modules['playwright']
+        del sys.modules['playwright.sync_api']
+
+
+def test_playwright_crawl_consumes_seed_urls():
+    import sys
+    from unittest.mock import MagicMock
+
+    mock_playwright = MagicMock()
+    mock_sync_api = MagicMock()
+    mock_sync = mock_sync_api.sync_playwright
+    mock_p = mock_sync.return_value.__enter__.return_value
+    mock_page = mock_p.chromium.launch.return_value.new_context.return_value.new_page.return_value
+    mock_page.content.return_value = "<html></html>"
+    mock_page.evaluate.return_value = []
+
+    sys.modules['playwright'] = mock_playwright
+    sys.modules['playwright.sync_api'] = mock_sync_api
+
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            from dograpper.lib.playwright_crawl import run_playwright_crawl
+            run_playwright_crawl(
+                "http://target.com",
+                d,
+                seed_urls=["http://target.com/api", "http://target.com/guide"],
+            )
+            visited_urls = [c[0][0] for c in mock_page.goto.call_args_list]
+            assert "http://target.com" in visited_urls
+            assert "http://target.com/api" in visited_urls
+            assert "http://target.com/guide" in visited_urls
+    finally:
+        del sys.modules['playwright']
+        del sys.modules['playwright.sync_api']
+
+
 def test_playwright_redownloads_missing():
     import sys
     from unittest.mock import MagicMock
@@ -226,8 +445,10 @@ def test_playwright_redownloads_missing():
             from dograpper.lib.playwright_crawl import run_playwright_crawl
             res = run_playwright_crawl("http://target.com", d, manifest_data=m)
             
-            # Assert goto WAS called because file is missing
-            mock_page.goto.assert_called_with("http://target.com", wait_until="networkidle")
+            # Assert goto WAS called because file is missing (bounded hydration)
+            mock_page.goto.assert_called_with(
+                "http://target.com", wait_until="domcontentloaded", timeout=10_000
+            )
             assert res.files_skipped == 0
     finally:
         del sys.modules['playwright']
@@ -243,21 +464,23 @@ def test_download_wget_success():
         
         with tempfile.TemporaryDirectory() as d:
             from dograpper.lib.wget_mirror import WgetResult
+            paths = [os.path.join(d, f"p{i}.html") for i in range(3)]
             with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
-                mock_wget.return_value = WgetResult(True, d, [os.path.join(d, "index.html")], [], 0)
-                
+                mock_wget.return_value = WgetResult(True, d, paths, [], 0)
+
                 # Mock is_spa
                 with patch('dograpper.commands.download.is_spa') as mock_is_spa:
                     mock_is_spa.return_value = False
-                    
-                    with open(os.path.join(d, "index.html"), "w") as f:
-                        f.write("content")
+
+                    for p in paths:
+                        with open(p, "w") as f:
+                            f.write("content")
 
                     manifest_path = os.path.join(d, ".dograpper-manifest.json")
                     res = runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
                     assert res.exit_code == 0
                     assert "Download complete" in res.output
-                    assert "Files downloaded: 1" in res.output
+                    assert "Files downloaded: 3" in res.output
                     assert mock_wget.called
 
 def test_download_spa_fallback(caplog):
@@ -306,20 +529,23 @@ def test_download_incremental_second_run():
     runner = CliRunner()
     with tempfile.TemporaryDirectory() as d:
         manifest_path = os.path.join(d, ".dograpper-manifest.json")
-        
+
         from dograpper.lib.wget_mirror import WgetResult
+        paths = [os.path.join(d, f"p{i}.html") for i in range(3)]
         with patch('dograpper.commands.download.run_wget_mirror') as mock_wget:
-            mock_wget.return_value = WgetResult(True, d, [os.path.join(d, "index.html")], [], 0)
+            mock_wget.return_value = WgetResult(True, d, paths, [], 0)
             with patch('dograpper.commands.download.is_spa') as mock_is_spa:
                 mock_is_spa.return_value = False
-                
-                with open(os.path.join(d, "index.html"), "w") as f: f.write("1")
-                
+
+                for p in paths:
+                    with open(p, "w") as f:
+                        f.write("1")
+
                 # First run
                 runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
                 args1 = mock_wget.call_args[1]
                 assert args1.get('incremental', False) is False
-                
+
                 # Second run
                 runner.invoke(download, ['http://example.com', '-o', d, '--manifest', manifest_path])
                 args2 = mock_wget.call_args[1]

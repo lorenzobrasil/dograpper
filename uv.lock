@@ -144,6 +144,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "pathspec" },
+    { name = "playwright" },
     { name = "tiktoken" },
 ]
 
@@ -159,6 +160,7 @@ headless = [
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
     { name = "pathspec", specifier = ">=1.0.4" },
+    { name = "playwright", specifier = ">=1.58.0" },
     { name = "playwright", marker = "extra == 'headless'", specifier = ">=1.40" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
