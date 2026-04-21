@@ -56,7 +56,7 @@ def test_wget_mirror_command_build():
         run_wget_mirror('http://example.com', './out', depth=2, delay=1500, include_extensions="html,md")
         
         args = mock_run.call_args[0][0]
-        assert "wget" in args
+        assert os.path.basename(args[0]) == "wget"
         assert "--mirror" in args
         assert "--timestamping" not in args
         assert "--convert-links" in args
@@ -72,8 +72,8 @@ def test_wget_incremental_flag():
         
         run_wget_mirror('http://example.com', './out', incremental=True)
         args = mock_run.call_args[0][0]
-        
-        assert "wget" in args
+
+        assert os.path.basename(args[0]) == "wget"
         assert "--timestamping" in args
         assert "--mirror" not in args
         assert "--recursive" in args
@@ -107,8 +107,8 @@ def test_wget_urls_uses_input_file_and_flags():
             assert res.success
 
         # Last call must be the actual wget invocation (not the --version probe).
-        # Find the call whose argv starts with "wget" and contains "-i".
-        wget_calls = [c for c in mock_run.call_args_list if c[0] and c[0][0][0] == "wget" and "-i" in c[0][0]]
+        # Find the call whose argv starts with wget (basename check tolerates full paths).
+        wget_calls = [c for c in mock_run.call_args_list if c[0] and os.path.basename(c[0][0][0]) == "wget" and "-i" in c[0][0]]
         assert wget_calls, "no wget -i invocation captured"
         args = wget_calls[-1][0][0]
 
@@ -143,7 +143,7 @@ def test_wget_urls_empty_list_noops():
         assert res.success
         assert res.files_downloaded == []
         # No wget call should have been made at all
-        wget_calls = [c for c in mock_run.call_args_list if c[0] and c[0][0][0] == "wget"]
+        wget_calls = [c for c in mock_run.call_args_list if c[0] and os.path.basename(c[0][0][0]) == "wget"]
         assert not wget_calls
 
 

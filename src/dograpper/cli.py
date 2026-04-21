@@ -2,12 +2,20 @@
 
 import click
 import sys
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from .utils.logger import setup_logger
 from .commands.download import download
 from .commands.pack import pack
 from .commands.sync import sync
+from .commands.doctor import doctor
+
+try:
+    __version__ = _pkg_version("dograpper")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
+@click.version_option(version=__version__, prog_name="dograpper")
 @click.option('--verbose', '-v', is_flag=True, default=False,
               help="Log detalhado (DEBUG) de cada operação")
 @click.option('--quiet', '-q', is_flag=True, default=False,
@@ -46,6 +54,7 @@ def cli(ctx: click.Context, verbose: bool, quiet: bool, config: str):
 cli.add_command(download)
 cli.add_command(pack)
 cli.add_command(sync)
+cli.add_command(doctor)
 
 def main():
     cli(obj={})

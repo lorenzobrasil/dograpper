@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import List
 from pathlib import Path
 
+from dograpper.utils.dep_resolver import resolve_wget
+
 logger = logging.getLogger(__name__)
 
 BROWSER_UA = (
@@ -37,12 +39,13 @@ def run_wget_mirror(
     """Run wget --mirror with the specified options."""
     
     # Check if wget is installed
+    wget_bin = resolve_wget()
     try:
-        subprocess.run(["wget", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        subprocess.run([wget_bin, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     except FileNotFoundError:
         raise RuntimeError("wget is required. Install with: brew install wget (macOS) or apt install wget (Linux)")
 
-    cmd = ["wget"]
+    cmd = [wget_bin]
     cmd.extend(["--timestamping", "--recursive"] if incremental else ["--mirror"])
     cmd.extend([
         "--convert-links",
@@ -126,8 +129,9 @@ def run_wget_urls(
     if not urls:
         return WgetResult(success=True, output_dir=output_dir, files_downloaded=[], errors=[])
 
+    wget_bin = resolve_wget()
     try:
-        subprocess.run(["wget", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        subprocess.run([wget_bin, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     except FileNotFoundError:
         raise RuntimeError("wget is required. Install with: brew install wget (macOS) or apt install wget (Linux)")
 
@@ -140,7 +144,7 @@ def run_wget_urls(
         url_list_file.close()
 
         cmd = [
-            "wget",
+            wget_bin,
             "--timestamping",
             "--convert-links",
             "--adjust-extension",

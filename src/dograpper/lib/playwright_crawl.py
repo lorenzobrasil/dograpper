@@ -1,5 +1,7 @@
 """Headless crawler using playwright."""
 
+from dograpper.utils import dep_resolver  # noqa: F401 — triggers ensure_playwright_browsers_path()
+
 import os
 import logging
 import time
