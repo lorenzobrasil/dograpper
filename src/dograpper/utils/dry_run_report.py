@@ -47,36 +47,36 @@ def generate_report(data: DryRunData) -> str:
     """Build the full dry-run report as a formatted string."""
     lines = []
     lines.append("")
-    lines.append("Dry-run report (nenhum arquivo foi escrito):")
+    lines.append("Dry-run report (no files written):")
     lines.append("\u2500" * 55)
 
     # --- Section 1: Overview ---
     lines.append("")
-    lines.append("  Arquivos encontrados:  " + str(data.total_files_found))
-    lines.append("  Arquivos exclu\u00eddos:    " + str(data.total_files_excluded))
-    lines.append("  Arquivos processados:  " + str(len(data.file_stats)))
+    lines.append("  Files found:           " + str(data.total_files_found))
+    lines.append("  Files excluded:        " + str(data.total_files_excluded))
+    lines.append("  Files processed:       " + str(len(data.file_stats)))
 
     total_before = sum(f.words_before_extraction for f in data.file_stats)
     total_after = sum(f.words_after_extraction for f in data.file_stats)
 
     lines.append("")
-    lines.append("  Palavras (bruto):      " + f"{total_before:,}")
-    lines.append("  Palavras (extra\u00eddo):   " + f"{total_after:,}")
+    lines.append("  Words (raw):           " + f"{total_before:,}")
+    lines.append("  Words (extracted):     " + f"{total_after:,}")
 
     if total_before > 0:
         reduction = (total_before - total_after) * 100 // total_before
-        lines.append(f"  Redu\u00e7\u00e3o por extra\u00e7\u00e3o:  {reduction}%")
+        lines.append(f"  Extraction reduction:  {reduction}%")
 
     # Dedup stats
     if data.dedup_stats is not None:
         total_after_dedup = sum(_effective_words(f) for f in data.file_stats)
-        lines.append(f"  Palavras (p\u00f3s-dedup):  {total_after_dedup:,}")
+        lines.append(f"  Words (post-dedup):    {total_after_dedup:,}")
         if total_after > 0:
             dedup_pct = data.dedup_stats.words_removed * 100 // total_after
         else:
             dedup_pct = 0
         lines.append(
-            f"  Dedup removeu:         {data.dedup_stats.words_removed:,} palavras "
+            f"  Dedup removed:         {data.dedup_stats.words_removed:,} words "
             f"({dedup_pct}%) \u2014 {data.dedup_stats.blocks_removed_exact} exact, "
             f"{data.dedup_stats.blocks_removed_fuzzy} fuzzy"
         )
@@ -87,15 +87,15 @@ def generate_report(data: DryRunData) -> str:
 
     # --- Section 2: Chunk projection ---
     lines.append("")
-    lines.append("  Estrat\u00e9gia:            " + data.strategy)
-    lines.append("  Limite por chunk:      " + f"{data.max_words_per_chunk:,} palavras")
-    lines.append("  Chunks projetados:     " + f"{data.projected_chunks} / {data.max_chunks} (max)")
+    lines.append("  Strategy:              " + data.strategy)
+    lines.append("  Limit per chunk:       " + f"{data.max_words_per_chunk:,} words")
+    lines.append("  Projected chunks:      " + f"{data.projected_chunks} / {data.max_chunks} (max)")
     if data.oversize_files > 0:
-        lines.append(f"  \u26a0 Arquivos oversize:   {data.oversize_files} (excedem o limite sozinhos)")
+        lines.append(f"  \u26a0 Oversize files:      {data.oversize_files} (exceed the limit on their own)")
 
     # --- Section 3: Top 10 files ---
     lines.append("")
-    lines.append("  Top 10 arquivos por palavras (ap\u00f3s extra\u00e7\u00e3o):")
+    lines.append("  Top 10 files by words (after extraction):")
     lines.append("  " + "\u2500" * 53)
 
     sorted_files = sorted(data.file_stats, key=lambda f: _effective_words(f), reverse=True)
@@ -123,12 +123,12 @@ def generate_report(data: DryRunData) -> str:
         total_effective = sum(_effective_words(f) for f in data.file_stats)
         avg_words = total_effective // data.projected_chunks
         lines.append("")
-        lines.append(f"  M\u00e9dia projetada:       ~{avg_words:,} palavras/chunk")
+        lines.append(f"  Projected average:     ~{avg_words:,} words/chunk")
 
     # --- Section 5: LLM Readiness (opt-in) ---
     if data.show_score and data.readiness_scores:
         lines.append("")
-        lines.append("  LLM Readiness Score (boundary não verificável em dry-run):")
+        lines.append("  LLM Readiness Score (boundary not verifiable in dry-run):")
         lines.append("  " + "─" * 53)
         lines.append(f"  {'Chunk':<20} {'Score':>6} {'Grade':>6} {'Noise':>7} {'Boundary':>9} {'Depth':>6}")
         lines.append("  " + "─" * 53)
@@ -140,12 +140,12 @@ def generate_report(data: DryRunData) -> str:
             )
         avg = sum(s.score for s in data.readiness_scores) / len(data.readiness_scores)
         lines.append("  " + "─" * 53)
-        lines.append(f"  {'Média':<20} {avg:>5.2f}")
+        lines.append(f"  {'Average':<20} {avg:>5.2f}")
 
     # --- Footer ---
     lines.append("")
     lines.append("\u2500" * 55)
-    lines.append("Ajuste par\u00e2metros e rode sem --dry-run para empacotar.")
+    lines.append("Adjust parameters and run without --dry-run to pack.")
     lines.append("")
 
     return "\n".join(lines)

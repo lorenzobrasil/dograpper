@@ -5,11 +5,11 @@ from .html_stripper import strip_html
 from .content_extractor import extract_content
 
 def count_words(text: str) -> int:
-    """Contagem simples de palavras."""
+    """Simple word count."""
     return len(text.split())
 
 def count_words_file(filepath: str, no_extract: bool = False) -> int:
-    """Lê um arquivo do disco e retorna a contagem de palavras, tolerando erros de codificação."""
+    """Read a file from disk and return its word count, tolerating encoding errors."""
     if not os.path.isfile(filepath):
         return 0
     try:

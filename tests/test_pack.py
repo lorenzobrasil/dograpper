@@ -145,7 +145,7 @@ def test_write_chunks_with_index():
         with open(os.path.join(out_dir, "ck_01.md"), 'r') as f:
             content = f.read()
             assert "# Chunk 01" in content
-            assert "Arquivos neste chunk" in content
+            assert "Files in this chunk" in content
             assert "<!-- SOURCE: a.md -->" in content
 
 def test_write_chunks_without_index():

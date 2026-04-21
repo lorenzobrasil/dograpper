@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @click.command(
     epilog=(
         "\b\n"
-        "Exemplos:\n"
+        "Examples:\n"
         "  dograpper pack ./docs -o ./chunks\n"
         "  dograpper pack ./docs -o ./chunks --strategy semantic --max-words-per-chunk 300000\n"
         "  dograpper pack ./docs -o ./chunks --bundle notebooklm --context-header --score\n"
@@ -24,77 +24,77 @@ logger = logging.getLogger(__name__)
 )
 @click.argument('input_dir', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True)
 @click.option('--output', '-o', required=True, type=click.Path(),
-              help="Diretório onde os chunks serão salvos")
+              help="Directory where chunks will be saved")
 @click.option('--max-words-per-chunk', type=int, default=500000, show_default=True,
-              help="Limite de palavras por chunk (teto por fonte do NotebookLM)")
+              help="Word limit per chunk (NotebookLM per-source ceiling)")
 @click.option('--max-chunks', type=int, default=50, show_default=True,
-              help="Limite total de chunks (teto de fontes por notebook)")
+              help="Total chunk limit (per-notebook source ceiling)")
 @click.option('--strategy', type=click.Choice(['size', 'semantic']), default='size', show_default=True,
-              help="size: empacota por contagem de palavras. semantic: agrupa por diretório primeiro")
+              help="size: pack by word count. semantic: group by directory first")
 @click.option('--ignore-file', type=click.Path(), default='./.docsignore', show_default=True,
-              help="Arquivo de exclusão com sintaxe gitignore")
+              help="Exclusion file with gitignore syntax")
 @click.option('--ignore', multiple=True, type=str, default=[],
-              help="Padrão de exclusão inline (pode repetir): --ignore '*.png' --ignore '**/404.html'")
+              help="Inline exclusion pattern (repeatable): --ignore '*.png' --ignore '**/404.html'")
 @click.option('--prefix', type=str, default="docs_chunk_", show_default=True,
-              help="Prefixo dos arquivos gerados")
+              help="Prefix for generated files")
 @click.option('--with-index/--no-index', default=True, show_default=True,
-              help="Incluir sumário de arquivos no cabeçalho de cada chunk")
+              help="Include a file summary in the header of each chunk")
 @click.option('--format', type=click.Choice(['txt', 'md', 'jsonl', 'xml']), default='md', show_default=True,
-              help="Formato de saída dos chunks. 'xml' está depreciado.")
+              help="Chunk output format. 'xml' is deprecated.")
 @click.option('--no-extract', is_flag=True, default=False,
-              help="Desativa a extração inteligente de conteúdo. Usa o HTML inteiro como no comportamento anterior.")
+              help="Disable smart content extraction. Use the whole HTML as in the previous behavior.")
 @click.option('--show-tokens', is_flag=True, default=False,
-              help="Exibe contagem de tokens por chunk e total no summary final.")
+              help="Show per-chunk and total token count in the final summary.")
 @click.option('--token-encoding', type=str, default="cl100k", show_default=True,
-              help="Encoding do tokenizer (cl100k, o200k, p50k). Requer --show-tokens.")
+              help="Tokenizer encoding (cl100k, o200k, p50k). Requires --show-tokens.")
 @click.option('--dry-run', is_flag=True, default=False,
-              help="Simula o pack sem escrever arquivos. Exibe relatório de compressão e projeção de chunks.")
+              help="Simulate the pack without writing files. Prints compression report and chunk projection.")
 @click.option('--dedup', type=click.Choice(['off', 'exact', 'fuzzy', 'both'], case_sensitive=False),
               default='off', show_default=True,
-              help="Deduplicação de blocos entre arquivos. "
-                   "'exact' remove blocos idênticos, 'fuzzy' remove quase idênticos, "
-                   "'both' aplica ambos.")
+              help="Cross-file block deduplication. "
+                   "'exact' removes identical blocks, 'fuzzy' removes near-identical ones, "
+                   "'both' applies both.")
 @click.option('--dedup-threshold', type=int, default=3, show_default=True,
-              help="Distância de Hamming máxima para dedup fuzzy (0-10). Menor = mais conservador.")
+              help="Maximum Hamming distance for fuzzy dedup (0-10). Lower = more conservative.")
 @click.option('--context-header', is_flag=True, default=False,
-              help="Injeta cabeçalho de contexto (source, breadcrumb de headings) "
-                   "no topo de cada arquivo dentro do chunk para melhorar a ingestão por LLMs.")
+              help="Inject a context header (source, heading breadcrumb) "
+                   "at the top of each file within the chunk to improve LLM ingestion.")
 @click.option('--cross-refs', is_flag=True, default=False,
-              help="Gera cross_refs.json com referências cruzadas entre chunks "
-                   "e anota o texto dos chunks com ponteiros [-> chunk_id].")
+              help="Generate cross_refs.json with cross-references between chunks "
+                   "and annotate chunk text with [-> chunk_id] pointers.")
 @click.option('--delta', is_flag=True, default=False,
-              help="Reprocessa apenas arquivos alterados desde o último pack.")
+              help="Reprocess only files changed since the last pack.")
 @click.option('--manifest', type=str, default=".dograpper-manifest.json",
               show_default=True,
-              help="Manifest do download para comparação delta.")
+              help="Download manifest used for delta comparison.")
 @click.option('--bundle', type=click.Choice(['notebooklm', 'rag-standard']),
               default=None,
-              help="Preset de empacotamento otimizado. "
-                   "'notebooklm': ≤50 chunks balanceados. "
-                   "'rag-standard': sem restrições especiais.")
+              help="Optimized packaging preset. "
+                   "'notebooklm': ≤50 balanced chunks. "
+                   "'rag-standard': no special restrictions.")
 @click.option('--score', is_flag=True, default=False,
-              help="Calcula LLM Readiness Score por chunk. "
-                   "Gera llm-readiness.json no output.")
+              help="Compute LLM Readiness Score per chunk. "
+                   "Generates llm-readiness.json in the output.")
 @click.pass_context
 def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: int, max_chunks: int, strategy: str, ignore_file: str, ignore: tuple, prefix: str, with_index: bool, format: str, no_extract: bool, show_tokens: bool, token_encoding: str, dry_run: bool, dedup: str, dedup_threshold: int, context_header: bool, cross_refs: bool, delta: bool, manifest: str, bundle: str, score: bool):
-    """Processa e agrupa arquivos em chunks otimizados para ingestão por LLMs.
+    """Process and group files into chunks optimized for LLM ingestion.
 
-    Percorre INPUT_DIR, extrai conteúdo principal, remove boilerplate
-    e duplicação, pontua qualidade, e gera chunks estruturados com
-    metadados de contexto no formato dograpper-context-v1.
-
-    \b
-    Estratégias de agrupamento:
-      size      Empacota por contagem de palavras pura, ordem alfabética.
-      semantic  Agrupa por diretório, preservando coesão temática.
+    Walks INPUT_DIR, extracts main content, removes boilerplate and
+    duplication, scores quality, and generates structured chunks with
+    context metadata in the dograpper-context-v1 format.
 
     \b
-    Presets de empacotamento (--bundle):
-      notebooklm   ≤50 chunks balanceados + IMPORT_GUIDE.md
-      rag-standard  Sem restrições, com guia de mapeamento
+    Grouping strategies:
+      size      Pack by pure word count, alphabetical order.
+      semantic  Group by directory, preserving thematic cohesion.
 
-    Se um único arquivo exceder `--max-words-per-chunk`, ele é colocado
-    sozinho em um chunk e um warning é emitido (o CLI não falha).
+    \b
+    Packaging presets (--bundle):
+      notebooklm    ≤50 balanced chunks + IMPORT_GUIDE.md
+      rag-standard  No restrictions, with mapping guide
+
+    If a single file exceeds `--max-words-per-chunk`, it is placed alone
+    in its own chunk and a warning is emitted (the CLI does not fail).
     """
     
     ctx.ensure_object(dict)
@@ -660,21 +660,21 @@ def pack(ctx: click.Context, input_dir: str, output: str, max_words_per_chunk: i
     click.echo(f"  Chunks generated: {generated_chunk_count} / {max_c} (max)")
     
     if generated_chunk_count > 0:
-         click.echo(f"  Words per chunk:  ~{avg_w:,.0f} avg (min: {min_w:,}, max: {max_w_actual:,})".replace(',', '.'))
+         click.echo(f"  Words per chunk:  ~{avg_w:,.0f} avg (min: {min_w:,}, max: {max_w_actual:,})")
     else:
          click.echo("  Words per chunk:  0")
-         
-    click.echo(f"  Total words:     {total_words:,}".replace(',', '.'))
+
+    click.echo(f"  Total words:     {total_words:,}")
 
     if dedup_stats is not None:
         click.echo(f"  Dedup mode:        {dedup_mode}")
-        click.echo(f"  Blocks analisados: {dedup_stats.total_blocks}")
-        click.echo(f"  Blocks removidos:  {dedup_stats.blocks_removed} ({dedup_stats.blocks_removed_exact} exact + {dedup_stats.blocks_removed_fuzzy} fuzzy)")
+        click.echo(f"  Blocks analyzed:   {dedup_stats.total_blocks}")
+        click.echo(f"  Blocks removed:    {dedup_stats.blocks_removed} ({dedup_stats.blocks_removed_exact} exact + {dedup_stats.blocks_removed_fuzzy} fuzzy)")
         if total_words + dedup_stats.words_removed > 0:
             pct = dedup_stats.words_removed * 100 // (total_words + dedup_stats.words_removed)
         else:
             pct = 0
-        click.echo(f"  Palavras removidas: {dedup_stats.words_removed:,} (~{pct}%)".replace(',', '.'))
+        click.echo(f"  Words removed:     {dedup_stats.words_removed:,} (~{pct}%)")
 
     if is_delta and diff is not None:
         click.echo(f"  Delta:           {len(diff.added)} added, {len(diff.modified)} modified, {len(diff.removed)} removed")

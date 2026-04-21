@@ -17,28 +17,28 @@ except PackageNotFoundError:
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
 @click.version_option(version=__version__, prog_name="dograpper")
 @click.option('--verbose', '-v', is_flag=True, default=False,
-              help="Log detalhado (DEBUG) de cada operação")
+              help="Detailed (DEBUG) logging of each operation")
 @click.option('--quiet', '-q', is_flag=True, default=False,
-              help="Suprimir output exceto erros críticos")
+              help="Suppress output except critical errors")
 @click.option('--config', default=".dograpper.json", show_default=True,
               type=click.Path(),
-              help="Arquivo JSON de configuração (seções `download` e `pack`)")
+              help="JSON config file (sections `download` and `pack`)")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, quiet: bool, config: str):
     """dograpper — Context Engineering Pipeline for Deterministic LLM Ingestion.
 
-    Transforma documentação HTML em contexto estruturado, dedupicado,
-    pontuado e versionado para ingestão em LLMs estáticos.
+    Transforms HTML documentation into structured, deduplicated, scored
+    and versioned context for ingestion by static LLMs.
 
     \b
-    Pipeline típico:
+    Typical pipeline:
       dograpper download <url> -o ./docs
       dograpper pack ./docs -o ./chunks --context-header --score
 
-    Pipeline rápido:
+    Quick pipeline:
       dograpper sync <url> -o ./docs
 
-    Cada subcomando tem ajuda própria: `dograpper <comando> --help`.
+    Each subcommand has its own help: `dograpper <command> --help`.
     """
     if verbose and quiet:
         click.echo("Error: --verbose and --quiet are mutually exclusive.", err=True)

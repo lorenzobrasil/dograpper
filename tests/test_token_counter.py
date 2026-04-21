@@ -57,7 +57,7 @@ class TestCountTokens:
         assert result.encoding == "cl100k_base"
 
     def test_invalid_encoding_raises(self):
-        with pytest.raises(ValueError, match="não reconhecido"):
+        with pytest.raises(ValueError, match="not recognized"):
             count_tokens("Hello", encoding="nonexistent_encoding")
 
     def test_longer_text_token_count(self):
@@ -119,7 +119,7 @@ class TestFormatTokenSummary:
 
     def test_empty_list(self):
         result = format_token_summary([])
-        assert "nenhum chunk" in result
+        assert "no chunks" in result
 
     def test_single_chunk(self):
         counts = [TokenCount(words=100, tokens=135, encoding="cl100k_base")]
@@ -136,10 +136,10 @@ class TestFormatTokenSummary:
         assert "400" in result  # total
         assert "cl100k_base" in result
 
-    def test_formatting_dot_separator(self):
+    def test_formatting_thousands_separator(self):
         counts = [TokenCount(words=10000, tokens=13500, encoding="cl100k_base")]
         result = format_token_summary(counts)
-        assert "13.500" in result
+        assert "13,500" in result
 
 
 # ---------------------------------------------------------------------------

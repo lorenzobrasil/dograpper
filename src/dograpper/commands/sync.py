@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 @click.command(
     epilog=(
         "\b\n"
-        "Exemplos:\n"
+        "Examples:\n"
         "  dograpper sync https://docs.example.com -o ./docs\n"
         "  dograpper sync https://docs.example.com -o ./docs --bundle notebooklm --context-header --score\n"
         "  dograpper sync https://spa.example.com -o ./docs --headless --format jsonl --cross-refs\n"
@@ -18,45 +18,45 @@ logger = logging.getLogger(__name__)
 @click.argument('url', type=str, required=True)
 # --- Download pass-through ---
 @click.option('--output', '-o', required=True, type=click.Path(),
-              help="Diretório base (download salva aqui, pack lê daqui)")
+              help="Base directory (download writes here, pack reads from here)")
 @click.option('--depth', '-d', type=int, default=0, show_default=True,
-              help="Profundidade máxima de links (0 = ilimitado)")
+              help="Maximum link depth (0 = unlimited)")
 @click.option('--headless', is_flag=True, default=False,
-              help="Pular wget e crawlear direto com Playwright (SPAs)")
+              help="Skip wget and crawl directly with Playwright (SPAs)")
 @click.option('--delay', type=int, default=0, show_default=True,
-              help="Intervalo entre requisições em ms")
+              help="Interval between requests in ms")
 @click.option('--include-extensions', type=str, default="html,md,txt", show_default=True,
-              help="Extensões permitidas, separadas por vírgula")
+              help="Allowed extensions, comma-separated")
 # --- Pack pass-through ---
 @click.option('--chunks-dir', type=str, default=None,
-              help="Diretório de saída dos chunks (default: <output>/chunks)")
+              help="Chunks output directory (default: <output>/chunks)")
 @click.option('--max-words-per-chunk', type=int, default=500000, show_default=True)
 @click.option('--max-chunks', type=int, default=50, show_default=True)
 @click.option('--strategy', type=click.Choice(['size', 'semantic']), default='size', show_default=True)
 @click.option('--format', type=click.Choice(['txt', 'md', 'jsonl', 'xml']), default='md', show_default=True)
 @click.option('--bundle', type=click.Choice(['notebooklm', 'rag-standard']), default=None)
 @click.option('--context-header', is_flag=True, default=False,
-              help="Injeta cabeçalho dograpper-context-v1 em cada arquivo do chunk")
+              help="Inject a dograpper-context-v1 header in each chunk file")
 @click.option('--cross-refs', is_flag=True, default=False,
-              help="Gera cross_refs.json e anota chunks com [-> chunk_id]")
+              help="Generate cross_refs.json and annotate chunks with [-> chunk_id]")
 @click.option('--score', is_flag=True, default=False,
-              help="Calcula LLM Readiness Score por chunk (llm-readiness.json)")
+              help="Compute LLM Readiness Score per chunk (llm-readiness.json)")
 @click.option('--dedup', type=click.Choice(['off', 'exact', 'fuzzy', 'both'], case_sensitive=False),
               default='off', show_default=True)
 @click.option('--show-tokens', is_flag=True, default=False,
-              help="Exibe contagem de tokens por chunk e total")
+              help="Show per-chunk and total token count")
 @click.pass_context
 def sync(ctx, url, output, depth, headless, delay, include_extensions,
          chunks_dir, max_words_per_chunk, max_chunks, strategy, format,
          bundle, context_header, cross_refs, score, dedup, show_tokens):
-    """Download incremental + pack delta em um único comando.
+    """Incremental download + pack delta in a single command.
 
-    Equivalente a:
-      dograpper download <url> -o <output> [flags de download]
-      dograpper pack <output> -o <chunks-dir> --delta [flags de pack]
+    Equivalent to:
+      dograpper download <url> -o <output> [download flags]
+      dograpper pack <output> -o <chunks-dir> --delta [pack flags]
 
-    Todas as flags de pack relevantes (bundle, context-header, score,
-    cross-refs, dedup, etc.) são encaminhadas para a etapa de pack.
+    All relevant pack flags (bundle, context-header, score, cross-refs,
+    dedup, etc.) are forwarded to the pack stage.
     """
     from .download import download
     from .pack import pack

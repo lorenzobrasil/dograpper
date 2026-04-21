@@ -10,7 +10,7 @@ and fine-tuning.
 
 ## Install (end users)
 
-> v1 supports Linux x86_64 only; macOS/Windows/ARM are non-goals until demand is demonstrated.
+> v1 supports Linux x86_64 only
 
 ```bash
 # Install (Linux x86_64 only)

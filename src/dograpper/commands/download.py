@@ -236,7 +236,7 @@ def _run_download_cascade(
 @click.command(
     epilog=(
         "\b\n"
-        "Exemplos:\n"
+        "Examples:\n"
         "  dograpper download https://docs.rust-lang.org -o ./rust-docs\n"
         "  dograpper download https://react.dev --headless -o ./react-docs --delay 500\n"
         "  dograpper download https://docs.python.org/3/ -o ./py -d 3 --include-extensions html,md\n"
@@ -244,26 +244,27 @@ def _run_download_cascade(
 )
 @click.argument('url', type=str, required=True)
 @click.option('--output', '-o', required=True, type=click.Path(),
-              help="Diretório de destino dos arquivos baixados")
+              help="Destination directory for downloaded files")
 @click.option('--depth', '-d', type=int, default=0, show_default=True,
-              help="Profundidade máxima de links a seguir (0 = ilimitado)")
+              help="Maximum link depth to follow (0 = unlimited)")
 @click.option('--headless', is_flag=True, default=False, show_default=True,
-              help="Pular wget e crawlear direto com Playwright (use para SPAs)")
+              help="Skip wget and crawl directly with Playwright (use for SPAs)")
 @click.option('--delay', type=int, default=0, show_default=True,
-              help="Intervalo entre requisições em ms (rate limiting)")
+              help="Interval between requests in ms (rate limiting)")
 @click.option('--include-extensions', type=str, default="html,md,txt", show_default=True,
-              help="Extensões permitidas, separadas por vírgula")
+              help="Allowed extensions, comma-separated")
 @click.option('--manifest', type=str, default=".dograpper-manifest.json", show_default=True,
-              help="Arquivo de cache JSON para downloads incrementais")
+              help="JSON cache file for incremental downloads")
 @click.pass_context
 def download(ctx: click.Context, url: str, output: str, depth: int, headless: bool, delay: int, include_extensions: str, manifest: str):
-    """Espelha um site de documentação localmente para processamento offline.
+    """Mirror a documentation site locally for offline processing.
 
-    Descobre URLs via cascade 4-layer: llms.txt → sitemap.xml → wget --mirror →
-    Playwright (hidratação bounded). Layers 1+2 rodam mesmo com --headless
-    para SPAs que publicam índices autoritativos (Mintlify, Stripe, Anthropic).
+    Discovers URLs via a 4-layer cascade: llms.txt → sitemap.xml → wget --mirror →
+    Playwright (bounded hydration). Layers 1+2 run even with --headless so
+    SPAs that publish authoritative indexes (Mintlify, Stripe, Anthropic) are
+    handled correctly.
 
-    Downloads são incrementais via manifest JSON.
+    Downloads are incremental via a JSON manifest.
     """
     ctx.ensure_object(dict)
     config_path = ctx.obj.get('CONFIG_PATH', '.dograpper.json')

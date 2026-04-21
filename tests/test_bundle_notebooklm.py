@@ -118,7 +118,7 @@ class TestGenerateImportGuide:
         chunks = [Chunk(index=1, files=[ChunkFile("a.html", 4820)], total_words=4820)]
         path = generate_import_guide(chunks, str(tmp_path), "notebooklm", 4820)
         content = open(path).read()
-        assert "4.820" in content or "4820" in content
+        assert "4,820" in content or "4820" in content
 
     def test_notebooklm_has_audio_tips(self, tmp_path):
         """NotebookLM preset includes Audio Overview tips."""

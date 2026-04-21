@@ -212,19 +212,19 @@ def generate_import_guide(chunks: List[Chunk], output_dir: str, preset: str,
     lines = []
 
     if preset == 'notebooklm':
-        lines.append("# Guia de Importação — NotebookLM\n")
-        lines.append("## Resumo\n")
-        lines.append(f"- **Total de fontes:** {len(chunks)} chunks")
-        lines.append(f"- **Total de palavras:** {total_words:,}".replace(',', '.'))
-        lines.append("- **Limite NotebookLM:** 50 fontes, 500.000 palavras/fonte\n")
-        lines.append("## Ordem de Upload Recomendada\n")
-        lines.append("Upload na ordem abaixo para melhor resultado no Audio Overview:\n")
-        lines.append("| # | Arquivo | Palavras | Módulo/Seção |")
-        lines.append("|---|---------|----------|--------------|")
+        lines.append("# Import Guide — NotebookLM\n")
+        lines.append("## Summary\n")
+        lines.append(f"- **Total sources:** {len(chunks)} chunks")
+        lines.append(f"- **Total words:** {total_words:,}")
+        lines.append("- **NotebookLM limit:** 50 sources, 500,000 words/source\n")
+        lines.append("## Recommended Upload Order\n")
+        lines.append("Upload in the order below for the best Audio Overview result:\n")
+        lines.append("| # | File | Words | Module/Section |")
+        lines.append("|---|------|-------|----------------|")
 
         for c in chunks:
             chunk_name = f"docs_chunk_{c.index:02d}.md"
-            words_fmt = f"{c.total_words:,}".replace(',', '.')
+            words_fmt = f"{c.total_words:,}"
 
             # Derive section from heading_map or directory
             section = ""
@@ -239,25 +239,25 @@ def generate_import_guide(chunks: List[Chunk], output_dir: str, preset: str,
             lines.append(f"| {c.index} | {chunk_name} | {words_fmt} | {section} |")
 
         lines.append("")
-        lines.append("## Dicas para Audio Overview\n")
-        lines.append("- Faça upload de todos os chunks antes de gerar o overview.")
-        lines.append("- O NotebookLM processa melhor quando os chunks têm tamanho similar.")
-        lines.append("- Se o overview ficar superficial, remova chunks de changelog/FAQ")
-        lines.append("  e mantenha apenas os conceituais.")
+        lines.append("## Tips for Audio Overview\n")
+        lines.append("- Upload all chunks before generating the overview.")
+        lines.append("- NotebookLM processes better when chunks have similar size.")
+        lines.append("- If the overview feels shallow, remove changelog/FAQ chunks")
+        lines.append("  and keep only the conceptual ones.")
     else:
         # rag-standard: simple mapping, no tips
-        lines.append("# Guia de Importação\n")
-        lines.append("## Resumo\n")
-        lines.append(f"- **Total de fontes:** {len(chunks)} chunks")
-        lines.append(f"- **Total de palavras:** {total_words:,}".replace(',', '.'))
+        lines.append("# Import Guide\n")
+        lines.append("## Summary\n")
+        lines.append(f"- **Total sources:** {len(chunks)} chunks")
+        lines.append(f"- **Total words:** {total_words:,}")
         lines.append("")
-        lines.append("## Mapeamento de Chunks\n")
-        lines.append("| # | Arquivo | Palavras | Módulo/Seção |")
-        lines.append("|---|---------|----------|--------------|")
+        lines.append("## Chunk Mapping\n")
+        lines.append("| # | File | Words | Module/Section |")
+        lines.append("|---|------|-------|----------------|")
 
         for c in chunks:
             chunk_name = f"docs_chunk_{c.index:02d}.md"
-            words_fmt = f"{c.total_words:,}".replace(',', '.')
+            words_fmt = f"{c.total_words:,}"
             section = ""
             if c.files:
                 first_file = c.files[0].relative_path
@@ -451,10 +451,10 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
     """Write a chunk as plain text (no markdown or HTML markup)."""
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
-            f.write(f"Chunk {chunk.index:02d} de {total_chunks:02d}\n")
-            f.write(f"Arquivos neste chunk ({len(chunk.files)} arquivos, ~{chunk.total_words} palavras):\n")
+            f.write(f"Chunk {chunk.index:02d} of {total_chunks:02d}\n")
+            f.write(f"Files in this chunk ({len(chunk.files)} files, ~{chunk.total_words} words):\n")
             for cf in chunk.files:
-                f.write(f"- {cf.relative_path} ({cf.word_count} palavras)\n")
+                f.write(f"- {cf.relative_path} ({cf.word_count} words)\n")
             f.write("\n" + ("=" * 60) + "\n\n")
 
         for i, cf in enumerate(chunk.files):
@@ -473,10 +473,10 @@ def _write_chunk_text(chunk: Chunk, base_dir: str, out_filepath: str, with_index
 def _write_chunk_markdown(chunk: Chunk, base_dir: str, out_filepath: str, with_index: bool, total_chunks: int, no_extract: bool = False, text_overrides: Dict[str, str] = None, heading_map: Dict = None, max_words: int = 0, url_map: Dict[str, str] = None, readiness_map: Dict[str, dict] = None, prefix: str = "docs_chunk_"):
     with open(out_filepath, 'w', encoding='utf-8') as f:
         if with_index:
-            f.write(f"# Chunk {chunk.index:02d} de {total_chunks:02d}\n\n")
-            f.write(f"## Arquivos neste chunk ({len(chunk.files)} arquivos, ~{chunk.total_words} palavras):\n")
+            f.write(f"# Chunk {chunk.index:02d} of {total_chunks:02d}\n\n")
+            f.write(f"## Files in this chunk ({len(chunk.files)} files, ~{chunk.total_words} words):\n")
             for cf in chunk.files:
-                f.write(f"- {cf.relative_path} ({cf.word_count} palavras)\n")
+                f.write(f"- {cf.relative_path} ({cf.word_count} words)\n")
             f.write("\n---\n\n")
 
         for i, cf in enumerate(chunk.files):
