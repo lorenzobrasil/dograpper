@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux_2_28_x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fix git safe directory (manylinux container)
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install gh CLI
+        shell: bash
+        run: |
+          dnf install -y 'dnf-command(config-manager)' || true
+          dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 2>/dev/null || true
+          dnf install -y gh 2>/dev/null || (
+            GH_VERSION=$(curl -sSf https://api.github.com/repos/cli/cli/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+            curl -sSfL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
+              -o /tmp/gh.tar.gz
+            tar -xzf /tmp/gh.tar.gz -C /tmp
+            install -m755 "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
+          )
+          gh --version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        shell: bash
+        run: uv sync --extra build --extra headless
+
+      - name: Reject unsubstituted release placeholders
+        shell: bash
+        run: |
+          set -e
+          fail=0
+          if grep -qR "PLACEHOLDER_SHA256_SUBSTITUTE_BEFORE_RELEASE" src/; then
+            echo "ERROR: unsubstituted SHA256 placeholder in src/"
+            grep -nR "PLACEHOLDER_SHA256_SUBSTITUTE_BEFORE_RELEASE" src/ || true
+            fail=1
+          fi
+          if grep -qE "\{\{GITHUB_OWNER\}\}" src/ scripts/ 2>/dev/null; then
+            echo "ERROR: unsubstituted {{GITHUB_OWNER}} placeholder in src/ or scripts/"
+            grep -nRE "\{\{GITHUB_OWNER\}\}" src/ scripts/ || true
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] || exit 1
+
+      - name: Run tests
+        shell: bash
+        run: uv run pytest tests/ -v
+
+      - name: Build binary with PyInstaller
+        shell: bash
+        run: uv run --extra build --extra headless pyinstaller dograpper.spec --clean
+
+      - name: Rename binary and generate SHA256
+        shell: bash
+        run: |
+          mv dist/dograpper dist/dograpper-linux-x86_64
+          cd dist
+          sha256sum dograpper-linux-x86_64 > dograpper-linux-x86_64.sha256
+
+      - name: Create draft release and upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create --draft "$GITHUB_REF_NAME" \
+            dist/dograpper-linux-x86_64 \
+            dist/dograpper-linux-x86_64.sha256 \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME"
+
+      - name: Verify assets are READY
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          delays=(5 10 20)
+          for i in 0 1 2; do
+            echo "Attempt $((i+1))/3: checking release assets..."
+            output=$(gh release view "$GITHUB_REF_NAME" --json assets)
+            ready_count=$(echo "$output" | python3 -c "
+          import sys, json
+          assets = json.load(sys.stdin).get('assets', [])
+          names = {'dograpper-linux-x86_64', 'dograpper-linux-x86_64.sha256'}
+          ready = [a for a in assets if a.get('name') in names and a.get('state') == 'uploaded']
+          print(len(ready))
+          ")
+            if [ "$ready_count" -eq 2 ]; then
+              echo "Both assets are READY."
+              exit 0
+            fi
+            echo "Assets not yet ready (found $ready_count/2). Waiting ${delays[$i]}s..."
+            sleep "${delays[$i]}"
+          done
+          echo "ERROR: Assets did not reach READY state after 3 attempts."
+          exit 1
+
+      - name: Roundtrip SHA256 check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release download "$GITHUB_REF_NAME" \
+            --pattern 'dograpper-linux-x86_64' \
+            -O /tmp/roundtrip
+          gh release download "$GITHUB_REF_NAME" \
+            --pattern '*.sha256' \
+            -O /tmp/roundtrip.sha256
+          expected=$(awk '{print $1}' /tmp/roundtrip.sha256)
+          actual=$(sha256sum /tmp/roundtrip | awk '{print $1}')
+          if [ "$expected" = "$actual" ]; then
+            echo "SHA256 roundtrip check passed: $actual"
+          else
+            echo "ERROR: SHA256 mismatch. Expected: $expected  Got: $actual"
+            exit 1
+          fi
+
+      - name: Publish release (undraft)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false

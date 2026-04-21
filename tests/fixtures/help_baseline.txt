@@ -1,0 +1,28 @@
+Usage: dograpper [OPTIONS] COMMAND [ARGS]...
+
+  dograpper — Context Engineering Pipeline for Deterministic LLM Ingestion.
+
+  Transforma documentação HTML em contexto estruturado, dedupicado, pontuado e
+  versionado para ingestão em LLMs estáticos.
+
+  Pipeline típico:
+    dograpper download <url> -o ./docs
+    dograpper pack ./docs -o ./chunks --context-header --score
+
+  Pipeline rápido:   dograpper sync <url> -o ./docs
+
+  Cada subcomando tem ajuda própria: `dograpper <comando> --help`.
+
+Options:
+  --version      Show the version and exit.
+  -v, --verbose  Log detalhado (DEBUG) de cada operação
+  -q, --quiet    Suprimir output exceto erros críticos
+  --config PATH  Arquivo JSON de configuração (seções `download` e `pack`)
+                 [default: .dograpper.json]
+  -h, --help     Show this message and exit.
+
+Commands:
+  doctor    Detect, report, and install heavy dependencies (wget, chromium).
+  download  Espelha um site de documentação localmente para processamento...
+  pack      Processa e agrupa arquivos em chunks otimizados para ingestão...
+  sync      Download incremental + pack delta em um único comando.
