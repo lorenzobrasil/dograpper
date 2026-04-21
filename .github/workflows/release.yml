@@ -41,7 +41,7 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: uv sync --extra build --extra headless
+        run: uv sync --extra build --extra headless --extra dev
 
       - name: Reject unsubstituted release placeholders
         shell: bash
