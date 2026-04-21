@@ -10,34 +10,21 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
-    container:
-      image: quay.io/pypa/manylinux_2_28_x86_64
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fix git safe directory (manylinux container)
-        shell: bash
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Install gh CLI
-        shell: bash
-        run: |
-          dnf install -y 'dnf-command(config-manager)' || true
-          dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 2>/dev/null || true
-          dnf install -y gh 2>/dev/null || (
-            GH_VERSION=$(curl -sSf https://api.github.com/repos/cli/cli/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
-            curl -sSfL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
-              -o /tmp/gh.tar.gz
-            tar -xzf /tmp/gh.tar.gz -C /tmp
-            install -m755 "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
-          )
-          gh --version
+      - name: Setup Python (shared-lib build for PyInstaller)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.10"
 
       - name: Install dependencies
         shell: bash
