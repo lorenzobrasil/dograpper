@@ -27,8 +27,8 @@ BUSYBOX_WGET_URL = (
     "https://github.com/lorenzobrasil/dograpper/releases/download/"
     "v0.0.0-tooling/busybox-wget-x86_64"
 )
-# Placeholder — substitute with real SHA256 before creating the v0.0.0-tooling release.
-BUSYBOX_WGET_SHA256 = "PLACEHOLDER_SHA256_SUBSTITUTE_BEFORE_RELEASE"
+# SHA256 of the v0.0.0-tooling busybox-wget-x86_64 asset.
+BUSYBOX_WGET_SHA256 = "6e123e7f3202a8c1e9b1f94d8941580a25135382b99e8d3e34fb858bba311348"
 
 LIB_TO_PKG = {
     "libnss3.so": "libnss3",
@@ -122,9 +122,9 @@ def _install_wget(force: bool) -> bool:
         click.echo(f"ERROR: failed to download wget: {e}", err=True)
         sys.exit(1)
 
-    if BUSYBOX_WGET_SHA256 == "PLACEHOLDER_SHA256_SUBSTITUTE_BEFORE_RELEASE":
+    if len(BUSYBOX_WGET_SHA256) != 64 or not all(c in "0123456789abcdef" for c in BUSYBOX_WGET_SHA256):
         click.echo(
-            "ERROR: BUSYBOX_WGET_SHA256 is an unsubstituted placeholder. "
+            "ERROR: BUSYBOX_WGET_SHA256 is not a valid 64-char hex digest. "
             "This build is unsafe; aborting wget install. "
             "Pin the real SHA256 in commands/doctor.py before release.",
             err=True,
