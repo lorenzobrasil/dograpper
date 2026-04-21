@@ -23,9 +23,8 @@ from dograpper.utils.dep_resolver import (
 
 logger = logging.getLogger(__name__)
 
-# Keep {{GITHUB_OWNER}} literal — will be substituted before release per Follow-up 6.
 BUSYBOX_WGET_URL = (
-    "https://github.com/{{GITHUB_OWNER}}/dograpper/releases/download/"
+    "https://github.com/lorenzobrasil/dograpper/releases/download/"
     "v0.0.0-tooling/busybox-wget-x86_64"
 )
 # Placeholder — substitute with real SHA256 before creating the v0.0.0-tooling release.
