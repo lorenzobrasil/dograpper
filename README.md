@@ -14,7 +14,7 @@ Projects e fine-tuning.
 
 ```bash
 # Install (Linux x86_64 only)
-curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lorenzobrasil/dograpper/main/scripts/install.sh | sh
 dograpper doctor --install             # baixa wget + chromium
 dograpper doctor --check-system-libs   # diagnostica libs de sistema faltantes
 dograpper --help
@@ -23,8 +23,8 @@ dograpper --help
 ### Proxy / MITM
 
 ```bash
-HTTPS_PROXY=http://proxy:3128 curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
-CURL_CA_BUNDLE=/path/to/cacert.pem curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
+HTTPS_PROXY=http://proxy:3128 curl -fsSL https://raw.githubusercontent.com/lorenzobrasil/dograpper/main/scripts/install.sh | sh
+CURL_CA_BUNDLE=/path/to/cacert.pem curl -fsSL https://raw.githubusercontent.com/lorenzobrasil/dograpper/main/scripts/install.sh | sh
 ```
 
 ### Storage layout

@@ -1,8 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-OWNER="{{GITHUB_OWNER}}"
-REPO="dograpper"
 INSTALL_DIR="${HOME}/.local/bin"
 
 # Platform check
@@ -17,7 +15,7 @@ if [ "$(uname -m)" != "x86_64" ]; then
 fi
 
 # Download
-URL_BIN="https://github.com/${OWNER}/${REPO}/releases/latest/download/dograpper-linux-x86_64"
+URL_BIN="https://github.com/lorenzobrasil/dograpper/releases/latest/download/dograpper-linux-x86_64"
 URL_SHA="${URL_BIN}.sha256"
 
 TMPDIR=$(mktemp -d)
