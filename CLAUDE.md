@@ -116,6 +116,7 @@ uv run dograpper pack ./test-docs -o ./chunks
 | `tests/test_bundle_notebooklm.py` | Antes de alterar lógica de `--bundle` |
 | `tests/test_boundary_chunking.py` | Antes de alterar `_split_text_by_words` |
 | `docs/schema-v1.md` | Referência do schema `dograpper-context-v1` — manter sincronizado com `heading_extractor.py` e `chunker.py` |
+| `.omc/plans/ralplan-global-cli-install.md` | Ao mexer em build/release, install.sh, doctor, dep_resolver |
 
 ## Regras críticas
 
@@ -225,4 +226,16 @@ uv run dograpper pack ./test-docs -o ./chunks --delta
 
 # Sync (download + pack delta)
 uv run dograpper sync https://click.palletsprojects.com/en/stable/ -o ./test-docs
+
+# Verificar dependências (wget, chromium)
+uv run dograpper doctor
+
+# Instalar deps faltantes (wget + chromium)
+uv run dograpper doctor --install
+
+# Diagnosticar libs de sistema faltantes
+uv run dograpper doctor --check-system-libs
+
+# Buildar binário standalone (requer extras 'build' e 'headless')
+uv run --extra build --extra headless pyinstaller dograpper.spec --clean
 ```

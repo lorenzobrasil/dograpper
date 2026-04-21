@@ -6,6 +6,51 @@ Transforma documentação HTML em contexto estruturado, dedupicado, pontuado
 e versionado — pronto para ingestão em NotebookLM, RAG pipelines, Claude
 Projects e fine-tuning.
 
+---
+
+## Install (end users)
+
+> v1 supports Linux x86_64 only; macOS/Windows/ARM are non-goals until demand is demonstrated.
+
+```bash
+# Install (Linux x86_64 only)
+curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
+dograpper doctor --install             # baixa wget + chromium
+dograpper doctor --check-system-libs   # diagnostica libs de sistema faltantes
+dograpper --help
+```
+
+### Proxy / MITM
+
+```bash
+HTTPS_PROXY=http://proxy:3128 curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
+CURL_CA_BUNDLE=/path/to/cacert.pem curl -fsSL https://raw.githubusercontent.com/{{GITHUB_OWNER}}/dograpper/main/scripts/install.sh | sh
+```
+
+### Storage layout
+
+| Path | Conteúdo |
+|------|---------|
+| `~/.dograpper/bin/` | wget estático |
+| `~/.dograpper/playwright-browsers/` | chromium |
+
+Override da raiz padrão: `DOGRAPPER_HOME=/custom/path dograpper doctor --install`
+
+### Exit codes
+
+| Code | Origin | Meaning | Remediation |
+|------|--------|---------|-------------|
+| 0 | any | success | — |
+| 1 | doctor (default) | one or more deps missing | run `dograpper doctor --install` |
+| 2 | doctor --check-system-libs | system libs missing | run suggested `apt install ...` |
+| 3 | download/crawl | chromium not installed | run `dograpper doctor --install` |
+| 4 | doctor --install | concurrent install lock held | wait for other install, retry |
+| 10 | install.sh | SHA256 mismatch | retry install, report issue |
+| 20 | install.sh | unsupported architecture | — |
+| 21 | install.sh | unsupported OS | — |
+
+---
+
 ## O problema
 
 LLMs estáticos não navegam na web. Quando recebem documentação crua como
@@ -33,7 +78,7 @@ URL → Mirror → Extract → Dedup → Score → Chunk → Export (MD/JSONL)
 
 ---
 
-## Instalação
+## Instalação (desenvolvimento)
 
 Requer Python 3.10+ e [uv](https://docs.astral.sh/uv/).
 
@@ -41,6 +86,7 @@ Requer Python 3.10+ e [uv](https://docs.astral.sh/uv/).
 git clone https://github.com/seu-usuario/dograpper.git
 cd dograpper
 uv sync
+uv run dograpper --help
 ```
 
 ### Dependências do sistema
