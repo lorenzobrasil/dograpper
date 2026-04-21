@@ -22,25 +22,25 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT INT TERM
 
 echo "[→] Downloading dograpper..."
-if ! curl -fsSL --connect-timeout 10 --max-time 120 "$URL_BIN" -o "$TMPDIR/dograpper"; then
+if ! curl -fsSL --connect-timeout 10 --max-time 120 "$URL_BIN" -o "$TMPDIR/dograpper-linux-x86_64"; then
     echo "ERROR: failed to download binary from $URL_BIN" >&2
     exit 30
 fi
 
-if ! curl -fsSL --connect-timeout 10 --max-time 30 "$URL_SHA" -o "$TMPDIR/dograpper.sha256"; then
+if ! curl -fsSL --connect-timeout 10 --max-time 30 "$URL_SHA" -o "$TMPDIR/dograpper-linux-x86_64.sha256"; then
     echo "ERROR: failed to download checksum from $URL_SHA" >&2
     exit 30
 fi
 
-# Verify checksum
-if ! ( cd "$TMPDIR" && sha256sum -c dograpper.sha256 >/dev/null 2>&1 ); then
+# Verify checksum (sha256 file references the filename "dograpper-linux-x86_64")
+if ! ( cd "$TMPDIR" && sha256sum -c dograpper-linux-x86_64.sha256 >/dev/null 2>&1 ); then
     echo "ERROR: checksum mismatch, aborting" >&2
     exit 10
 fi
 
 # Install
 mkdir -p "$INSTALL_DIR"
-mv "$TMPDIR/dograpper" "$INSTALL_DIR/dograpper"
+mv "$TMPDIR/dograpper-linux-x86_64" "$INSTALL_DIR/dograpper"
 chmod +x "$INSTALL_DIR/dograpper"
 
 # PATH hint
