@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies (dev + headless extras)
+        # headless (playwright) is required: tests/test_doctor.py patches
+        # playwright.__main__, so the module must be importable. No browser
+        # download is needed — playwright install chromium is not run here.
+        run: uv sync --extra dev --extra headless
+
+      - name: Run test suite
+        run: uv run pytest tests/ -v
