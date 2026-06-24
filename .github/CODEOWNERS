@@ -1,0 +1,10 @@
+# Roteamento padrão de revisões.
+# Cada linha: <padrão> <revisor(es)>. O último match vence.
+
+# Padrão global
+*                       @lorenzobrasil
+
+# Pipeline de release e empacotamento
+/.github/               @lorenzobrasil
+/dograpper.spec         @lorenzobrasil
+/scripts/               @lorenzobrasil
